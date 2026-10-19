@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="212 220 600 600"><title>WindowAtlas 单色图形标（海军蓝）</title><g transform="translate(-20 -26)" fill="none" stroke="#10161F" stroke-linecap="round" stroke-linejoin="round">
+<g transform="rotate(-11 532 540)"><path d="M352 270 H712 Q762 270 762 320" stroke-width="10" stroke-opacity="0.55"/></g>
+<g transform="rotate(-5 532 540)"><path d="M302 360 Q302 310 352 310 H712 Q762 310 762 360" stroke-width="10" stroke-opacity="0.75"/></g>
+<rect x="302" y="352" width="460" height="380" rx="50" stroke-width="16"/>
+<rect x="340" y="434" width="188" height="130" rx="22" fill="#10161F" stroke="none"/>
+<rect x="546" y="434" width="178" height="130" rx="22" stroke-width="10"/>
+<rect x="340" y="582" width="188" height="114" rx="22" stroke-width="10"/>
+<rect x="546" y="582" width="178" height="114" rx="22" stroke-width="10"/>
+<g fill="#10161F" stroke="none"><circle cx="352" cy="398" r="10"/><circle cx="384" cy="398" r="10"/><circle cx="416" cy="398" r="10"/></g>
+<g stroke-width="14"><path d="M262 382 V312 H332"/><path d="M802 382 V312 H732"/><path d="M262 702 V772 H332"/><path d="M802 702 V772 H732"/></g></g></svg>
