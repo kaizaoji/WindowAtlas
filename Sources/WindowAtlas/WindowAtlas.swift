@@ -18,7 +18,7 @@ struct WindowItem: Identifiable {
     var onOtherSpace = false
     var savedKey: String { appID + "|" + title }
     var isTerminal: Bool {
-        ["com.apple.Terminal", "com.googlecode.iterm2", "com.mitchellh.ghostty", "com.cmuxterm.app", "dev.warp.Warp-Stable"].contains(appID)
+        (TabBrowser(rawValue: appID)?.isTerminal ?? false)
         || appName.localizedCaseInsensitiveContains("terminal") || appName.localizedCaseInsensitiveContains("cmux")
     }
     var isBrowser: Bool {
@@ -94,6 +94,12 @@ final class WindowStore: ObservableObject {
     @Published var terminalEnabled = Set(UserDefaults.standard.stringArray(forKey: "terminalTaskApps") ?? [])
     @Published var terminalErrors: [String: String] = [:]
     @Published var taskOnly = false
+    /// 终端项目备注名：完整项目路径 → 名称。按路径记住，同一项目的所有标签共用，重启后仍有效。
+    @Published var projectAliases = UserDefaults.standard.dictionary(forKey: "terminalProjectAliases") as? [String: String] ?? [:] {
+        didSet { UserDefaults.standard.set(projectAliases, forKey: "terminalProjectAliases") }
+    }
+    /// 正在编辑备注名的终端标签（弹出命名框）。
+    @Published var renamingTab: BrowserTab?
     var terminalFetching = false
     var terminalPreviousCPU: [Int: Double] = [:]
     @Published var folderPreferences: [String: FolderPreferences] = {
@@ -135,6 +141,8 @@ final class WindowStore: ObservableObject {
     var staleWindowIDs: Set<CGWindowID> = []
     var browserRefreshRequest = BrowserRefreshRequest()
     var lastTabRefresh = Date.distantPast
+    /// 用户手动停止读取标签页的应用：汇总栏目自动加入新应用时跳过它们。
+    var tabReadingStopped = Set<String>()
     var folder: FolderPreferences { folderPreferences[selection] ?? FolderPreferences() }
     var cardWidth: Double {
         get { folder.cardWidth }
@@ -396,6 +404,7 @@ final class WindowStore: ObservableObject {
             lastCaptured = lastCaptured.filter { sources[$0.key] != nil }
             refreshStatus.lastRefresh = Date()
             UserDefaults.standard.set(observedTimes, forKey: "observedTimes")
+            includeNewTabApps()
             // 标签读取对浏览器发出大量 Apple 事件：正在看标签页时每次刷新都读，否则每 30 秒读一次（只为更新侧栏数量）。
             if !browserTabApps.isEmpty, showingTabs || Date().timeIntervalSince(lastTabRefresh) >= 30 {
                 await refreshBrowserTabs()

@@ -19,6 +19,8 @@ struct TerminalProcess: Sendable {
     var name: String { URL(fileURLWithPath: command).lastPathComponent.lowercased() }
     var isAgent: Bool { name == "codex" || name == "claude" || name == "claude-code" || name.hasPrefix("codex-") || command.lowercased().contains("/claude/versions/") }
     var isShell: Bool { ["zsh", "bash", "sh", "fish", "dash", "tcsh", "csh", "nu", "login", "-zsh", "-bash"].contains(name) }
+    /// 提示符插件的常驻后台进程（powerlevel10k 的 gitstatusd），每个终端都有，不代表有任务在运行。
+    var isPromptHelper: Bool { name.hasPrefix("gitstatusd") }
     static func parse(_ line: String) -> TerminalProcess? {
         let parts = line.split(maxSplits: 7, omittingEmptySubsequences: true, whereSeparator: { $0.isWhitespace }).map(String.init)
         guard parts.count == 8, let pid = Int(parts[0]), let group = Int(parts[1]), let foreground = Int(parts[2]) else { return nil }
@@ -68,7 +70,7 @@ struct TerminalTaskEvaluator {
     static func evaluate(session: TerminalSessionSnapshot, processes: [TerminalProcess], previousCPU: [Int: Double]) -> (TerminalTaskKind, [String]) {
         let tty = normalizedTTY(session.tty)
         guard !tty.isEmpty else { return (.unknown, []) }
-        let attached = processes.filter { normalizedTTY($0.tty) == tty && !$0.state.contains("Z") }
+        let attached = processes.filter { normalizedTTY($0.tty) == tty && !$0.state.contains("Z") && !$0.isPromptHelper }
         let agents = attached.filter(\.isAgent)
         let foreground = attached.filter { $0.foreground > 0 && $0.group == $0.foreground && !$0.isShell }
         let commands = foreground.isEmpty ? attached.filter { !$0.isShell } : foreground
@@ -95,7 +97,8 @@ struct TerminalTaskEvaluator {
 
 enum TerminalTaskBridge {
     private static let queue = DispatchQueue(label: "WindowAtlas.TerminalTasks", qos: .utility)
-    static let supported = ["com.apple.Terminal", "com.googlecode.iterm2"]
+    /// 支持任务状态的终端：Terminal、iTerm2 读自己的会话字典；其他终端用 TerminalSessions 读出的会话与 TTY，按进程判断。
+    static let supported = TabBrowser.allCases.filter(\.isTerminal).map(\.rawValue)
     private static func code(_ text: String) -> UInt32 { text.utf8.reduce(0) { ($0 << 8) | UInt32($1) } }
     private final class EventErrors: NSObject, SBApplicationDelegate {
         var error: Error?
@@ -110,6 +113,31 @@ enum TerminalTaskBridge {
         let result = object.property(withCode: code(property)).get()
         try errors.check(); return result
     }
+    /// 第三方终端：会话来自 TerminalSessions（精确层或进程树），只保留对应到窗口、带 TTY 的会话；
+    /// 对不上窗口的会话不计入任何窗口，避免把别的窗口的任务算进来。
+    static func thirdPartySnapshot(pid: pid_t, browser: TabBrowser, windows: [TerminalSessions.WindowRef]) async throws -> [TerminalWindowSnapshot] {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    let snapshots = try TerminalSessions.read(pid: pid, browser: browser, windows: windows)
+                    continuation.resume(returning: taskSnapshots(from: snapshots))
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
+    static func taskSnapshots(from snapshots: [TerminalSessions.Snapshot]) -> [TerminalWindowSnapshot] {
+        snapshots.compactMap { snapshot in
+            guard let windowID = UInt32(snapshot.id) else { return nil }
+            let sessions = snapshot.tabs.map { tab in
+                // 会话 url 为「路径 · 程序… · TTY」，TTY 在最后
+                let tty = tab.url.components(separatedBy: " · ").last { $0.hasPrefix("ttys") } ?? ""
+                return TerminalSessionSnapshot(id: tab.id, tty: tty, busy: nil, processing: nil, processes: [])
+            }
+            return TerminalWindowSnapshot(id: windowID, sessions: sessions)
+        }
+    }
+
     static func snapshot(pid: pid_t, appID: String) async throws -> [TerminalWindowSnapshot] {
         try await withCheckedThrowingContinuation { continuation in
             queue.async { autoreleasepool {
@@ -183,7 +211,11 @@ extension WindowStore {
         for pid in Set(targets.map(\.pid)) {
             guard let item = targets.first(where: { $0.pid == pid }) else { continue }
             do {
-                let snapshots = try await TerminalTaskBridge.snapshot(pid: pid, appID: item.appID)
+                let browser = TabBrowser(rawValue: item.appID)
+                let snapshots = browser.map { !$0.isScriptableTerminal } ?? false
+                    ? try await TerminalTaskBridge.thirdPartySnapshot(pid: pid, browser: browser!,
+                        windows: windows.filter { $0.pid == pid }.map { TerminalSessions.WindowRef(id: $0.id, title: $0.title) })
+                    : try await TerminalTaskBridge.snapshot(pid: pid, appID: item.appID)
                 if terminalErrors[item.appID] != nil { terminalErrors.removeValue(forKey: item.appID) }
                 for snapshot in snapshots {
                     // Exact ID+pid association only; never guess another terminal from similar titles.

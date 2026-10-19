@@ -24,7 +24,7 @@ struct BrowserRefreshRequest {
     }
 }
 
-/// 支持读取标签页的浏览器。Chrome 与 Edge 同为 Chromium，脚本字典一致；Safari 字典不同，标签没有稳定 ID。
+/// 支持读取标签页的浏览器与终端。Chrome 与 Edge 同为 Chromium，脚本字典一致；Safari 字典不同，标签没有稳定 ID。
 enum TabBrowser: String, CaseIterable {
     case chrome = "com.google.Chrome"
     case edge = "com.microsoft.edgemac"
@@ -32,18 +32,34 @@ enum TabBrowser: String, CaseIterable {
     /// 终端与 iTerm2 的每个标签（iTerm2 分屏时为每个会话）同样作为「标签页」列出。
     case terminal = "com.apple.Terminal"
     case iterm = "com.googlecode.iterm2"
+    /// 第三方终端：Ghostty（AppleScript）、WezTerm（命令行）、Kitty（远程控制）可精确到标签；
+    /// 其余没有标签接口，按进程树列出该终端启动的会话（见 TerminalSessions）。
+    case ghostty = "com.mitchellh.ghostty"
+    case wezterm = "com.github.wez.wezterm"
+    case kitty = "net.kovidgoyal.kitty"
+    case warp = "dev.warp.Warp-Stable"
+    case alacritty = "org.alacritty"
+    case hyper = "co.zeit.hyper"
+    case tabby = "org.tabby"
+    case rio = "com.raphaelamorim.rio"
+    case cmux = "com.cmuxterm.app"
     var name: String {
         switch self {
         case .chrome: return "Google Chrome"; case .edge: return "Microsoft Edge"; case .safari: return "Safari"
         case .terminal: return L("终端"); case .iterm: return "iTerm2"
+        default: return shortName
         }
     }
     var isChromium: Bool { self == .chrome || self == .edge }
-    var isTerminal: Bool { self == .terminal || self == .iterm }
+    var isTerminal: Bool { !isChromium && self != .safari }
+    /// 用系统自带脚本字典读取标签与 TTY 的终端（Terminal、iTerm2）；其他终端由 TerminalSessions 读取。
+    var isScriptableTerminal: Bool { self == .terminal || self == .iterm }
     var shortName: String {
         switch self {
         case .chrome: return "Chrome"; case .edge: return "Edge"; case .safari: return "Safari"
         case .terminal: return L("终端"); case .iterm: return "iTerm2"
+        case .ghostty: return "Ghostty"; case .wezterm: return "WezTerm"; case .kitty: return "kitty"; case .warp: return "Warp"
+        case .alacritty: return "Alacritty"; case .hyper: return "Hyper"; case .tabby: return "Tabby"; case .rio: return "Rio"; case .cmux: return "cmux"
         }
     }
 }
@@ -80,9 +96,11 @@ enum BrowserBridge {
         let tabs: [TabSnapshot]
     }
 
-    static func snapshot(pid: pid_t, browser: TabBrowser) async throws -> [WindowSnapshot] {
+    /// windows 为该应用的截图窗口，第三方终端据此把自己的窗口对应到缩略图。
+    static func snapshot(pid: pid_t, browser: TabBrowser, windows: [TerminalSessions.WindowRef] = []) async throws -> [WindowSnapshot] {
         try await run {
-            if browser.isTerminal { return try readTerminal(pid: pid, browser: browser) }
+            if browser.isScriptableTerminal { return try readTerminal(pid: pid, browser: browser) }
+            if browser.isTerminal { return try TerminalSessions.read(pid: pid, browser: browser, windows: windows) }
             return browser.isChromium ? try readSnapshot(pid: pid, browser: browser) : try readSafari(pid: pid)
         }
     }
@@ -177,7 +195,8 @@ enum BrowserBridge {
         let details = TerminalDirectories.details()
         let directories = details.compactMapValues(\.path)
         let isTerminal = browser == .terminal
-        let shells: Set<String> = ["login", "-zsh", "zsh", "-bash", "bash", "sh", "fish", "-fish"]
+        // 除 shell 外，caffeinate 等防休眠辅助进程也不是用户关心的「运行程序」，不显示
+        let shells: Set<String> = ["login", "-zsh", "zsh", "-bash", "bash", "sh", "fish", "-fish", "caffeinate"]
         return try children(app, "cwin", errors: errors).compactMap { window in
             guard let id = try? text(window, "ID  ", errors: errors) else { errors.error = nil; return nil }
             var tabs: [TabSnapshot] = []
@@ -397,7 +416,7 @@ extension WindowStore {
     var filteredTabs: [BrowserTab] {
         let included = Set(tabFolderBrowsers.map(\.rawValue))
         let items = browserTabs.filter { tab in
-            included.contains(tab.appID) && searchMatches(query, tab.title, tab.rawTitle, tab.url, tab.location, TabBrowser(rawValue: tab.appID)?.name ?? "")
+            included.contains(tab.appID) && searchMatches(query, tab.title, tab.rawTitle, tab.url, tab.location, TabBrowser(rawValue: tab.appID)?.name ?? "", projectAlias(tab) ?? "")
         }
         // 汇总栏目先按浏览器分组（Chrome、Edge、Safari），再按窗口与标签原顺序。
         let rank = Dictionary(uniqueKeysWithValues: TabBrowser.allCases.enumerated().map { ($1.rawValue, $0) })
@@ -443,13 +462,35 @@ extension WindowStore {
         for browser in browsers {
             browserTabApps.insert(browser.rawValue)
             browserErrors.removeValue(forKey: browser.rawValue)
+            tabReadingStopped.remove(browser.rawValue)
         }
         if target == nil || selection == target?.rawValue { setShowTabs(true) }
         Task { await refreshBrowserTabs() }
     }
 
+    /// 正在看汇总栏目（终端、浏览器、全部窗口）的标签页时，之后才打开的应用自动加入读取；
+    /// 读取出错（如拒绝授权）或被用户手动停止的应用不自动加入，避免反复弹授权。
+    func includeNewTabApps() {
+        guard showingTabs, currentTabBrowser == nil else { return }
+        for browser in tabFolderBrowsers where !browserTabApps.contains(browser.rawValue)
+            && browserErrors[browser.rawValue] == nil && !tabReadingStopped.contains(browser.rawValue) {
+            browserTabApps.insert(browser.rawValue)
+        }
+    }
+
+    /// 「重新读取标签页」：当前栏目里尚未读取的应用一并加入（含之前出错的，由用户主动重试），然后刷新。
+    func rereadBrowserTabs() {
+        for browser in tabFolderBrowsers {
+            browserTabApps.insert(browser.rawValue)
+            browserErrors.removeValue(forKey: browser.rawValue)
+            tabReadingStopped.remove(browser.rawValue)
+        }
+        Task { await refreshBrowserTabs() }
+    }
+
     func disableBrowserTabs(_ target: TabBrowser? = nil) {
         guard let browser = target ?? currentTabBrowser else { return }
+        tabReadingStopped.insert(browser.rawValue)
         browserTabApps.remove(browser.rawValue)
         browserLoadingApps.remove(browser.rawValue)
         browserErrors.removeValue(forKey: browser.rawValue)
@@ -475,7 +516,8 @@ extension WindowStore {
             do {
                 var tabs: [BrowserTab] = []
                 for running in instances {
-                    let snapshots = try await BrowserBridge.snapshot(pid: running.processIdentifier, browser: browser)
+                    let refs = windows.filter { $0.pid == running.processIdentifier }.map { TerminalSessions.WindowRef(id: $0.id, title: $0.title) }
+                    let snapshots = try await BrowserBridge.snapshot(pid: running.processIdentifier, browser: browser, windows: refs)
                     guard browserRefreshRequest.isCurrent(requestID), browserTabApps.contains(browser.rawValue), !running.isTerminated else { return }
                     for (offset, snapshot) in snapshots.enumerated() {
                         let parent: CGWindowID?
@@ -590,8 +632,15 @@ extension WindowStore {
             guard !close else { return }
             Task {
                 do {
-                    if !(try await BrowserBridge.actTerminal(tab: tab, browser: browser)) {
+                    let found = browser.isScriptableTerminal
+                        ? try await BrowserBridge.actTerminal(tab: tab, browser: browser)
+                        : try await TerminalSessions.activate(tab: tab, browser: browser)
+                    if !found {
                         browserErrors[tab.appID] = L("这个标签页已关闭。正在更新列表。")
+                    } else if !browser.isScriptableTerminal {
+                        // 第三方终端的接口只切换标签，不一定把窗口带到最前；对应到窗口时聚焦该窗口，否则激活应用
+                        if let parent = windows.first(where: { $0.id == tab.parentWindowID }) { focus(parent) }
+                        else { NSRunningApplication(processIdentifier: tab.pid)?.activate(options: []) }
                     }
                     await refreshBrowserTabs()
                 } catch { browserErrors[tab.appID] = error.localizedDescription }
@@ -615,47 +664,92 @@ extension WindowStore {
 enum TerminalDirectories {
     private static let shells: Set<String> = ["zsh", "-zsh", "bash", "-bash", "fish", "-fish", "sh", "nu"]
 
-    struct Info { var path: String?; var programs: [String] }
+    /// shellPID 为该 TTY 上选中的交互 shell，用于和第三方终端接口返回的进程编号对应。
+    struct Info { var path: String?; var programs: [String]; var shellPID: Int32? = nil }
+
+    /// ps 中带终端（TTY）的一个进程。
+    struct ProcessEntry: Equatable { let pid: Int32; let ppid: Int32; let tty: String; let name: String }
 
     /// TTY（如 ttys023）→ 以 ~ 开头的完整路径。
     static func byTTY() -> [String: String] { details().compactMapValues(\.path) }
 
-    /// TTY → 工作目录与正在运行的非 shell 程序（如 claude、codex、node）。
-    static func details() -> [String: Info] {
+    /// 本机所有带 TTY 的进程（只读进程元信息，不读终端内容）。
+    static func processes() -> [ProcessEntry] {
         let ps = Process(); let pipe = Pipe()
         ps.executableURL = URL(fileURLWithPath: "/bin/ps")
-        ps.arguments = ["-axo", "pid=,tty=,comm="]
+        ps.arguments = ["-axo", "pid=,ppid=,tty=,comm="]
         ps.standardOutput = pipe; ps.standardError = FileHandle.nullDevice
-        guard (try? ps.run()) != nil else { return [:] }
+        guard (try? ps.run()) != nil else { return [] }
         let data = pipe.fileHandleForReading.readDataToEndOfFile(); ps.waitUntilExit()
+        return String(decoding: data, as: UTF8.self).split(separator: "\n").compactMap(parsePSLine)
+    }
+
+    /// TTY → 工作目录与正在运行的非 shell 程序（如 claude、codex、node）。
+    /// 传入 appPID 时只保留由该应用启动的会话（shell 的祖先进程是该应用），用于没有标签接口的第三方终端。
+    static func details(_ entries: [ProcessEntry]? = nil, under appPID: pid_t? = nil,
+                        directory: (Int32) -> String? = currentDirectory) -> [String: Info] {
+        let entries = entries ?? processes()
+        let parents = Dictionary(entries.map { ($0.pid, $0.ppid) }, uniquingKeysWith: { first, _ in first })
         var shellsByTTY: [String: (pid: Int32, path: String)] = [:]
         var programs: [String: [String]] = [:]
         let ignored: Set<String> = ["login", "caffeinate", "ps"]
-        for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
-            let parts = line.split(maxSplits: 2, whereSeparator: { $0 == " " }).map(String.init)
-            guard parts.count == 3, let pid = Int32(parts[0]), parts[1].hasPrefix("ttys") else { continue }
-            let name = URL(fileURLWithPath: parts[2]).lastPathComponent
+        for entry in entries {
+            if let appPID, !isDescendant(entry.pid, of: appPID, parents: parents) { continue }
+            let (pid, tty, name) = (entry.pid, entry.tty, entry.name)
             if !shells.contains(name) {
-                if !ignored.contains(name), !(programs[parts[1]] ?? []).contains(name) { programs[parts[1], default: []].append(name) }
+                // gitstatusd 是 powerlevel10k 等提示符插件的后台进程，每个标签都有，不算用户运行的程序
+                if !ignored.contains(name), !name.hasPrefix("gitstatusd"), !(programs[tty] ?? []).contains(name) {
+                    programs[tty, default: []].append(name)
+                }
                 continue
             }
-            guard let path = currentDirectory(pid) else { continue }
+            guard let path = directory(pid) else { continue }
             // 同一个 TTY 上常有提示符插件派生的辅助 shell（工作目录为 /）。优先取目录不是 / 的、最早启动（编号最小）的交互 shell。
-            if let existing = shellsByTTY[parts[1]] {
+            if let existing = shellsByTTY[tty] {
                 let existingRoot = existing.path == "/", candidateRoot = path == "/"
                 if candidateRoot && !existingRoot { continue }
                 if candidateRoot == existingRoot && existing.pid < pid { continue }
             }
-            shellsByTTY[parts[1]] = (pid, abbreviate(path))
+            shellsByTTY[tty] = (pid, abbreviate(path))
         }
         var result: [String: Info] = [:]
-        for tty in Set(shellsByTTY.keys).union(programs.keys) {
-            result[tty] = Info(path: shellsByTTY[tty]?.path, programs: programs[tty] ?? [])
+        // 按应用筛选时只要有 shell 的会话；没有 shell 的 TTY 不是该终端的标签。
+        let ttys = appPID == nil ? Set(shellsByTTY.keys).union(programs.keys) : Set(shellsByTTY.keys)
+        for tty in ttys {
+            result[tty] = Info(path: shellsByTTY[tty]?.path, programs: programs[tty] ?? [], shellPID: shellsByTTY[tty]?.pid)
         }
         return result
     }
 
-    private static func currentDirectory(_ pid: Int32) -> String? {
+    /// 沿父进程链向上查找；限制深度，防止异常数据成环。
+    static func isDescendant(_ pid: Int32, of ancestor: Int32, parents: [Int32: Int32]) -> Bool {
+        var current = pid
+        for _ in 0..<32 {
+            guard let parent = parents[current], parent > 1 else { return false }
+            if parent == ancestor { return true }
+            current = parent
+        }
+        return false
+    }
+
+    /// 解析 `ps -axo pid=,ppid=,tty=,comm=` 的一行。
+    /// ps 按列宽对齐，行首和列之间可能有多个空格；split 的 maxSplits 会把被省略的空段也计数，
+    /// 曾导致程序名带前导空格（「 -zsh」）而认不出 shell，路径全部丢失。这里逐列去空白再取值；程序路径本身可能含空格，保持原样。
+    static func parsePSLine(_ line: Substring) -> ProcessEntry? {
+        func nextColumn(_ text: Substring) -> (Substring, Substring)? {
+            let rest = text.drop(while: { $0 == " " })
+            guard let end = rest.firstIndex(of: " ") else { return nil }
+            return (rest[..<end], rest[end...])
+        }
+        guard let (pidText, afterPID) = nextColumn(line), let pid = Int32(pidText),
+              let (ppidText, afterPPID) = nextColumn(afterPID), let ppid = Int32(ppidText),
+              let (tty, afterTTY) = nextColumn(afterPPID), tty.hasPrefix("ttys") else { return nil }
+        let command = afterTTY.trimmingCharacters(in: .whitespaces)
+        guard !command.isEmpty else { return nil }
+        return ProcessEntry(pid: pid, ppid: ppid, tty: String(tty), name: URL(fileURLWithPath: command).lastPathComponent)
+    }
+
+    static func currentDirectory(_ pid: Int32) -> String? {
         var info = proc_vnodepathinfo()
         let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
         guard proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &info, size) == size else { return nil }

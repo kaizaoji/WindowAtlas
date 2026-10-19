@@ -611,3 +611,16 @@
 "Chrome、Edge 的标签各自移到新窗口（页面不刷新）后再排列；终端标签排列所在窗口" = "Moves each Chrome or Edge tab into its own window (pages don't reload), then arranges them. Terminal tabs arrange their windows.";
 "有 %d 个标签没能拆成独立窗口，已排列它们所在的窗口。" = "%d tabs couldn't be moved into their own windows; their windows were arranged instead.";
 "%@ 拆分标签失败：%@" = "Couldn't split the %@ tab: %@";
+"拷贝路径" = "Copy Path";
+"已复制路径" = "Path copied";
+"点击复制完整路径：%@" = "Click to copy full path: %@";
+"复制路径 %@" = "Copy path %@";
+"备注项目名…" = "Name Project…";
+"备注项目名" = "Name Project";
+"例如：窗口图鉴" = "e.g. WindowAtlas";
+"清除备注" = "Remove Name";
+"已保存备注。%@ 无法同步终端标签标题，只在窗口图鉴中显示。" = "Name saved. %@ can't update its tab title, so the name only appears in WindowAtlas.";
+"使用文件夹名「%@」" = "Use folder name “%@”";
+"该目录下所有终端标签都显示这个名称（当前打开 %d 个），重启后仍保留。" = "Every terminal tab in this folder shows this name (%d open now), and it's kept after restarts.";
+"%@的标签标题也会同步修改。" = "%@ tab titles are updated too.";
+"%@不支持修改标签标题，名称只在窗口图鉴中显示。" = "%@ can't change tab titles, so the name only appears in WindowAtlas.";

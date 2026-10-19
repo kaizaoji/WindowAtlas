@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.4 — 2026-10-19
+
+- Tell many terminals apart at a glance: every terminal tab shows its project path (long paths keep the project folder name). Click the path to copy the full path, or use Copy Path in the context menu.
+- Name projects: right-click a terminal tab → Name Project… The name is remembered per folder, shown on every tab in that folder across terminals, kept after restarts and matched by search. Terminal, iTerm2, Ghostty, WezTerm and kitty tab titles are updated too.
+- More terminals: Ghostty, WezTerm and kitty are listed per tab and split pane with one-click switching (kitty needs `allow_remote_control socket-only` and `listen_on unix:/tmp/kitty` in kitty.conf). Warp, Alacritty, Hyper, Tabby, Rio and cmux list each session's path and program.
+- Task status now works for these terminals as well.
+- Fixed: terminal paths could be empty; idle terminals using powerlevel10k were reported as "running a command"; terminals or browsers opened after turning on the tab view in All Windows / Terminals / Browsers were not picked up.
+
 ## 0.9.3 — 2026-10-19
 
 - The project now lives at github.com/kaizaoji/WindowAtlas (old links redirect). The one-line installer points to the new location.

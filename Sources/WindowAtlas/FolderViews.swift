@@ -28,7 +28,7 @@ struct FolderControls: View {
                         .buttonStyle(.borderedProminent).help(L("读取 %@ 标签页", store.tabFolderName))
                 } else {
                     Menu {
-                        Button(L("重新读取标签页")) { Task { await store.refreshBrowserTabs() } }
+                        Button(L("重新读取标签页")) { store.rereadBrowserTabs() }
                         if let browser = store.currentTabBrowser {
                             Button(L("停止读取 %@ 标签页", browser.name)) { store.disableBrowserTabs() }
                         }
@@ -277,7 +277,7 @@ struct ChromeFolderView: View {
                 } description: {
                     Text(store.query.isEmpty ? L("点击重新读取；也可以切到窗口视图查看 %@。", browserName) : L("请调整搜索词。"))
                 } actions: {
-                    Button(L("重新读取标签页")) { Task { await store.refreshBrowserTabs() } }.disabled(store.browserLoading)
+                    Button(L("重新读取标签页")) { store.rereadBrowserTabs() }.disabled(store.browserLoading)
                 }
             } else {
                 switch store.viewMode {
@@ -293,9 +293,16 @@ struct ChromeFolderView: View {
                                         Divider()
                                         VStack(alignment: .leading, spacing: 6) {
                                             Text(tab.title).font(.system(size: 13, weight: .semibold)).lineLimit(2, reservesSpace: true)
-                                            Text(tab.url).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                                            HStack { Text(tab.location).font(.caption); Spacer(); ObservedTime(date: tab.firstSeen) }
-                                                .foregroundStyle(.secondary)
+                                            if let path = tab.terminalPath {
+                                                CopyablePathLabel(path: path, fullPath: tab.terminalFullPath ?? path, alias: store.projectAlias(tab))
+                                            } else {
+                                                Text(tab.url).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                            }
+                                            HStack {
+                                                Text(tab.terminalPrograms.isEmpty ? tab.location : tab.terminalPrograms + " · " + tab.location)
+                                                    .font(.caption).lineLimit(1)
+                                                Spacer(); ObservedTime(date: tab.firstSeen)
+                                            }.foregroundStyle(.secondary)
                                         }.padding(12)
                                     }.frame(maxWidth: .infinity, alignment: .leading)
                                         .background(AtlasStyle.surface).clipShape(RoundedRectangle(cornerRadius: AtlasStyle.radius))
@@ -338,6 +345,7 @@ struct ChromeFolderView: View {
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .bottom) { if store.markedTabIDs.count > 1 { TabSelectionBar() } }
+            .sheet(item: $store.renamingTab) { tab in ProjectAliasSheet(tab: tab) }
     }
 }
 
@@ -385,6 +393,116 @@ struct TabSelectionBar: View {
     }
 }
 
+/// 终端标签的项目路径：单击复制完整路径，不触发卡片的选中 / 打开。
+/// 过长时省略开头，保留末尾的项目文件夹名，这是区分项目最关键的部分。
+struct CopyablePathLabel: View {
+    let path: String
+    let fullPath: String
+    /// 项目备注名，显示在路径前，便于一眼认出项目。
+    var alias: String? = nil
+    @State private var copied = false
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: copied ? "checkmark" : (alias == nil ? "folder" : "tag.fill"))
+            if copied {
+                Text(L("已复制路径"))
+            } else {
+                if let alias {
+                    Text(alias).fontWeight(.semibold).foregroundStyle(AtlasStyle.accent).lineLimit(1).layoutPriority(1)
+                }
+                Text(path).lineLimit(1).truncationMode(.head)
+            }
+        }
+            .font(.caption)
+            .foregroundStyle(copied ? AtlasStyle.accent : Color.primary.opacity(hovering ? 1 : 0.8))
+            .underline(hovering && !copied)
+            .contentShape(Rectangle())
+            .help(L("点击复制完整路径：%@", fullPath))
+            .onHover { inside in
+                hovering = inside
+                if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
+            // 刷新时卡片可能在鼠标仍悬停时被移除，补一次 pop，避免手形光标残留
+            .onDisappear { if hovering { NSCursor.pop(); hovering = false } }
+            // 高优先级手势：抢在卡片按钮之前处理单击，避免复制路径时顺带切换选中
+            .highPriorityGesture(TapGesture().onEnded {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(fullPath, forType: .string)
+                copied = true
+                Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
+            })
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(L("复制路径 %@", fullPath))
+    }
+}
+
+/// 给终端项目起备注名的弹窗：打开即带出当前名称并聚焦，回车保存、Esc 取消。
+struct ProjectAliasSheet: View {
+    @EnvironmentObject var store: WindowStore
+    @Environment(\.dismiss) private var dismiss
+    let tab: BrowserTab
+    @State private var name = ""
+    @FocusState private var focused: Bool
+
+    private var path: String { tab.terminalPath ?? "" }
+    private var folder: String { TerminalSessions.folderName(path) }
+    private var current: String? { store.projectAlias(tab) }
+    private var affected: Int { store.browserTabs.filter { $0.terminalFullPath == tab.terminalFullPath }.count }
+    private var cleaned: String { TerminalSessions.sanitizedTitle(name) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "tag.fill").foregroundStyle(AtlasStyle.accent)
+                Text(L("备注项目名")).font(.headline)
+            }
+            // 路径过长时省略中间，开头的位置与结尾的项目名都保留
+            Label(path, systemImage: "folder").font(.caption.monospaced()).foregroundStyle(.secondary)
+                .lineLimit(1).truncationMode(.middle).help(tab.terminalFullPath ?? path)
+            VStack(alignment: .leading, spacing: 8) {
+                TextField(L("例如：窗口图鉴"), text: $name).textFieldStyle(.roundedBorder).focused($focused)
+                    .onSubmit(save)
+                if !folder.isEmpty, folder != "~", folder != "/", name != folder {
+                    Button { name = folder } label: { Label(L("使用文件夹名「%@」", folder), systemImage: "arrow.turn.down.left") }
+                        .buttonStyle(.link).font(.caption)
+                }
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                Label(L("该目录下所有终端标签都显示这个名称（当前打开 %d 个），重启后仍保留。", affected), systemImage: "square.stack")
+                Label(syncNote, systemImage: TerminalSessions.canSetTitle(tab) ? "arrow.triangle.2.circlepath" : "info.circle")
+            }.font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            HStack {
+                if current != nil {
+                    Button(L("清除备注"), role: .destructive) { store.setProjectAlias("", for: tab); dismiss() }
+                        .buttonStyle(.borderless).foregroundStyle(.red)
+                }
+                Spacer()
+                Button(L("取消")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(L("保存"), action: save).keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+                    .disabled(cleaned.isEmpty || cleaned == current)
+            }
+        }
+        .padding(20).frame(width: 400)
+        .onAppear { name = current ?? ""; focused = true }
+    }
+
+    /// 只说明当前这个标签所在终端能否同步标题。
+    private var syncNote: String {
+        let terminal = TabBrowser(rawValue: tab.appID)?.shortName ?? ""
+        return TerminalSessions.canSetTitle(tab)
+            ? L("%@的标签标题也会同步修改。", terminal)
+            : L("%@不支持修改标签标题，名称只在窗口图鉴中显示。", terminal)
+    }
+
+    private func save() {
+        guard !cleaned.isEmpty, cleaned != current else { return }
+        store.setProjectAlias(cleaned, for: tab)
+        dismiss()
+    }
+}
+
 struct ChromeTabActions: View {
     @EnvironmentObject var store: WindowStore
     let tab: BrowserTab
@@ -392,6 +510,9 @@ struct ChromeTabActions: View {
         Button(L("切换到标签页"), systemImage: "arrow.up.forward.app") { store.actOnTab(tab) }
         if !tab.isTerminalTab {
             Button(L("拷贝网址"), systemImage: "link") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(tab.url, forType: .string) }
+        } else if let fullPath = tab.terminalFullPath {
+            Button(L("拷贝路径"), systemImage: "folder") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(fullPath, forType: .string) }
+            Button(L("备注项目名…"), systemImage: "tag") { store.renamingTab = tab }
         }
         if let parent = store.windows.first(where: { $0.id == tab.parentWindowID }) {
             Menu(L("所在窗口")) {
@@ -431,7 +552,11 @@ struct ChromeTabList: View {
                             Image(systemName: "globe").foregroundStyle(tab.active ? Color.accentColor : Color.secondary).frame(width: 24)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(tab.title).lineLimit(1).help(tab.title)
-                                Text(tab.url).font(.caption).foregroundStyle(.secondary).lineLimit(1).help(tab.url)
+                                if let path = tab.terminalPath {
+                                    CopyablePathLabel(path: path, fullPath: tab.terminalFullPath ?? path, alias: store.projectAlias(tab))
+                                } else {
+                                    Text(tab.url).font(.caption).foregroundStyle(.secondary).lineLimit(1).help(tab.url)
+                                }
                             }.frame(maxWidth: .infinity, alignment: .leading)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(tab.location).font(.caption)

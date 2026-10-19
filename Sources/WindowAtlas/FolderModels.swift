@@ -102,11 +102,25 @@ struct BrowserTab: Identifiable {
     /// 标签画面缓存的键：Chromium 标签 ID 稳定；Safari 标签 ID 是位置序号，改用网址。
     var previewKey: String { "\(appID):\(pid):" + (appID == TabBrowser.safari.rawValue ? url : tabID) }
     var isTerminalTab: Bool { TabBrowser(rawValue: appID)?.isTerminal ?? false }
+    /// 终端标签的 url 字段为「工作目录 · 程序… · TTY」，目录读不到时省略。
+    private var terminalParts: [String] { url.components(separatedBy: " · ") }
+    /// 终端标签的工作目录（以 ~ 或 / 开头）；读不到时为 nil。
+    var terminalPath: String? {
+        guard isTerminalTab, let first = terminalParts.first, first.hasPrefix("~") || first.hasPrefix("/") else { return nil }
+        return first
+    }
+    /// 复制用的绝对路径：~ 展开为主目录，粘贴到终端或 Finder「前往文件夹」都能直接用。
+    var terminalFullPath: String? { terminalPath.map { ($0 as NSString).expandingTildeInPath } }
+    /// 终端标签正在运行的程序（如「claude」），不含目录与 TTY。
+    var terminalPrograms: String {
+        guard isTerminalTab else { return "" }
+        return terminalParts.dropFirst(terminalPath == nil ? 0 : 1).filter { !$0.hasPrefix("ttys") }.joined(separator: " · ")
+    }
     /// 占位显示的来源：网页为域名；终端标签为项目文件夹名。
     var host: String {
         if isTerminalTab {
-            let path = url.components(separatedBy: " · ").first ?? url
-            return path.hasPrefix("~") || path.hasPrefix("/") ? (URL(fileURLWithPath: path).lastPathComponent) : path
+            if let path = terminalPath { return URL(fileURLWithPath: path).lastPathComponent }
+            return terminalParts.first ?? url
         }
         return URL(string: url)?.host ?? url
     }

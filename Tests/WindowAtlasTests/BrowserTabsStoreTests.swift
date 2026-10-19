@@ -44,6 +44,31 @@ final class BrowserTabsStoreTests: XCTestCase {
         XCTAssertEqual(store.tabCountLabel(TabBrowser.chrome.rawValue, windowCount: 3), "需重试")
     }
 
+    func testAggregateTabsViewPicksUpTerminalsOpenedLater() {
+        let store = WindowStore()
+        func window(_ id: CGWindowID, _ appID: String) -> WindowItem {
+            WindowItem(id: id, pid: pid_t(id), appID: appID, appName: appID, title: "w", frame: .zero, icon: nil)
+        }
+        store.windows = [window(1, TabBrowser.terminal.rawValue)]
+        store.selection = "terminals"
+        store.enableBrowserTabs()
+        XCTAssertEqual(store.browserTabApps, [TabBrowser.terminal.rawValue])
+        // 之后才打开的终端：看着汇总标签页时自动加入
+        store.windows += [window(2, TabBrowser.wezterm.rawValue), window(3, TabBrowser.ghostty.rawValue), window(4, TabBrowser.kitty.rawValue)]
+        store.browserErrors[TabBrowser.ghostty.rawValue] = "denied"
+        store.tabReadingStopped.insert(TabBrowser.kitty.rawValue)
+        store.includeNewTabApps()
+        XCTAssertEqual(store.browserTabApps, [TabBrowser.terminal.rawValue, TabBrowser.wezterm.rawValue], "出错或手动停止的不自动加入")
+        // 用户主动「重新读取」时一并重试
+        store.rereadBrowserTabs()
+        XCTAssertTrue(store.browserTabApps.isSuperset(of: [TabBrowser.ghostty.rawValue, TabBrowser.kitty.rawValue]))
+        // 只看窗口时不自动加入
+        store.browserTabApps = [TabBrowser.terminal.rawValue]
+        store.setShowTabs(false)
+        store.includeNewTabApps()
+        XCTAssertEqual(store.browserTabApps, [TabBrowser.terminal.rawValue])
+    }
+
     func testLegacyChromeSwitchMigratesToBrowserList() {
         UserDefaults.standard.removeObject(forKey: "browserTabApps")
         UserDefaults.standard.set(true, forKey: "chromeTabsEnabled")
@@ -120,7 +145,23 @@ final class BrowserTabsStoreTests: XCTestCase {
                 title: "t", url: url, active: false, windowFrame: .zero, parentWindowID: nil)
         }
         XCTAssertEqual(tab(path + " · claude · ttys023").host, "26codex", "占位显示项目文件夹名")
+        XCTAssertEqual(tab(path + " · claude · ttys023").terminalPath, path)
+        XCTAssertEqual(tab(path + " · claude · ttys023").terminalPrograms, "claude")
+        XCTAssertNil(tab("codex · ttys010").terminalPath, "读不到目录时不当作路径")
+        XCTAssertEqual(tab("codex · ttys010").terminalPrograms, "codex")
         XCTAssertEqual(tab("ttys023").host, "ttys023")
+    }
+
+    func testPSLineParsingToleratesColumnPadding() {
+        // ps 右对齐编号、按列宽补空格；曾因程序名带前导空格而认不出 shell，导致终端标签路径全部丢失
+        let shell = TerminalDirectories.parsePSLine(" 94417 94416 ttys002  -zsh")
+        XCTAssertEqual(shell?.pid, 94417)
+        XCTAssertEqual(shell?.ppid, 94416)
+        XCTAssertEqual(shell?.tty, "ttys002")
+        XCTAssertEqual(shell?.name, "-zsh")
+        XCTAssertEqual(TerminalDirectories.parsePSLine("23507 23490 ttys000  /Users/x/.cache/gitstatus/gitstatusd-darwin-arm64")?.name, "gitstatusd-darwin-arm64")
+        XCTAssertEqual(TerminalDirectories.parsePSLine("  501     1 ttys003  /Applications/Visual Studio Code.app/Contents/MacOS/Electron")?.name, "Electron", "程序路径含空格")
+        XCTAssertNil(TerminalDirectories.parsePSLine("  123     1 ??       /usr/sbin/cfprefsd"), "无终端的进程跳过")
     }
 
     func testSnapshotGoesToTabShownAtCaptureTime() {

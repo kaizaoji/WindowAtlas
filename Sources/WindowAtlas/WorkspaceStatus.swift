@@ -119,8 +119,11 @@ struct TerminalTaskControls: View {
         if store.selection == "terminals" || store.windows.contains(where: { $0.appID == store.selection && $0.isTerminal }) || store.selection == "all" {
             HStack(spacing: 8) {
                 Menu {
-                    ForEach(TerminalTaskBridge.supported, id: \.self) { appID in
-                        let name = appID == "com.apple.Terminal" ? "Terminal" : "iTerm2"
+                    // 只列出正在运行或已开启的终端，避免菜单被没装的终端塞满
+                    ForEach(TerminalTaskBridge.supported.filter { appID in
+                        store.terminalEnabled.contains(appID) || store.windows.contains { $0.appID == appID }
+                    }, id: \.self) { appID in
+                        let name = appID == TabBrowser.terminal.rawValue ? "Terminal" : (TabBrowser(rawValue: appID)?.shortName ?? appID)
                         if store.terminalEnabled.contains(appID) {
                             Button(L("停止读取 %@", name)) { store.disableTerminalTasks(appID) }
                         } else {

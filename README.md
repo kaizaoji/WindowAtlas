@@ -47,7 +47,7 @@ WindowAtlas is built for this way of working. It lays out every window, grouped 
 - **Keyboard navigation** — click to select, double-click or Return to open; arrow keys move the selection with automatic scrolling; Home/End and Esc.
 - **Always-on sidebar** — a narrow thumbnail sidebar that follows you across Spaces and keeps working when the main board is closed.
 - **Browser tabs (optional)** — read every tab in Chrome, Edge and Safari, per browser or combined under All Windows; search, switch or close; the current tab shows a live preview.
-- **Terminal tabs (optional)** — every Terminal and iTerm2 tab (including split panes) is listed with its full project path, running program and TTY; double-click to jump there. Terminal contents are never read, and sessions can't be closed from here.
+- **Terminal tabs (optional)** — every Terminal, iTerm2, Ghostty, WezTerm and kitty tab (including split panes) is listed with its full project path, running program and TTY; double-click to jump there, click the path to copy it, or right-click to name the project (remembered per folder and synced to the tab title where the terminal allows). Warp, Alacritty, Hyper, Tabby and other terminals list each session's path and program. For tab-level kitty support, enable `allow_remote_control socket-only` and `listen_on unix:…` in kitty.conf. Terminal contents are never read, and sessions can't be closed from here.
 - **Arrange windows in one click** — multi-select 2–9 windows from any apps and lay them out as a grid, side by side, stacked or with a main window on the left, across displays; arranged windows show which display they're on. Chrome and Edge tabs can be split into their own windows first.
 - **Multiple desktops and displays** — windows on other desktops (Spaces) are listed and one click takes you there; closed-but-lingering window surfaces are hidden automatically.
 - **Placement and closing** — right-click for a 3×3 grid, halves, center, fill or restore across displays; hover a thumbnail to close it, with confirmation.
@@ -109,7 +109,7 @@ WindowAtlas walks you through two system permissions on first launch:
 |---|---|
 | Screen Recording | Shows thumbnails of your windows. Quit and reopen WindowAtlas after enabling it. |
 | Accessibility | Brings the window you click to the front, and places, minimizes or closes windows. |
-| Automation (optional) | Reads Chrome, Edge and Safari tabs and Terminal/iTerm2 session status when you turn those features on. |
+| Automation (optional) | Reads Chrome, Edge and Safari tabs and Terminal, iTerm2 and Ghostty tabs and session status when you turn those features on. |
 
 If a switch is on but WindowAtlas still says it is not enabled, remove WindowAtlas from the list with “−” and add it again with “+”.
 
