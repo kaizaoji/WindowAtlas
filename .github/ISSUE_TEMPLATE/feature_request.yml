@@ -1,0 +1,21 @@
+name: 功能建议 / Feature request
+description: 想让窗口图鉴变得更好 · Make WindowAtlas better
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 遇到的问题 / The problem
+      description: 你在什么场景下遇到了不便？例如同时运行多个 AI 编程会话时… · What gets in your way? e.g. while running several AI coding sessions…
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 希望的做法 / What you'd like
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其他 / Anything else

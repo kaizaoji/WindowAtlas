@@ -4,31 +4,59 @@
 
 <h1 align="center">窗口图鉴 WindowAtlas</h1>
 
-<p align="center"><b>所有窗口，一个工作台。</b><br>原生 macOS 跨应用窗口工作台：用大缩略图看清每个窗口，双击或按回车回到真实窗口。</p>
+<p align="center"><b>为 AI 并行编程打造的 macOS 窗口工作台。</b><br>十几个 Claude Code、Codex、终端和浏览器同时开着，也能一眼看到、一键回到你要的那个窗口。</p>
+
+<p align="center">
+  <a href="https://github.com/zerotoonex/WindowAtlas/releases/latest"><img alt="下载" src="https://img.shields.io/github/v/release/zerotoonex/WindowAtlas?label=%E4%B8%8B%E8%BD%BD&color=4f8ef7"></a>
+  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111?logo=apple">
+  <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-555">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-3dd68c"></a>
+  <a href="https://windowatlas.kaizaoji.com"><img alt="官网" src="https://img.shields.io/badge/%E5%AE%98%E7%BD%91-windowatlas.kaizaoji.com-4f8ef7"></a>
+</p>
 
 <!-- README-I18N:START -->
 [English](README.md) | **简体中文**
 <!-- README-I18N:END -->
 
-![窗口图鉴](branding/png/social-banner.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/board-dark.png">
+  <img alt="窗口图鉴主看板：多个 Claude Code、Codex 终端与浏览器窗口以大缩略图排列" src="docs/screenshots/board-light.png">
+</picture>
 
 ## 为什么做窗口图鉴
 
-同时开着多个 Codex、Claude Code、终端、浏览器和 Finder 窗口时，想找的那个总被压在最下面。调度中心（Mission Control）是临时的，只有标题的切换器又要靠猜。窗口图鉴像翻图鉴一样，把所有窗口按应用分门别类、以可调大小的缩略图摆在一个工作台里：看内容认出窗口，双击或按回车就回到真实窗口，正在运行的会话不会被打断。
+AI 编程工具迭代飞快，我们的工作方式也变了：一个人同时让好几个 Claude Code、Codex 在不同项目里并行干活，再配上开发服务器、测试、浏览器、文档和 Finder。窗口越开越多，问题也随之而来：
 
-## 功能
+- **找窗口慢**：⌘Tab 只按应用切换，同一个应用的十几个终端窗口只能靠猜；调度中心一松手就消失。
+- **切错窗口**：终端标题长得都差不多，很容易把指令发到别的项目、或者打断正在跑的任务。
+- **看不到进度**：后台的 AI 会话是还在跑、已经停下等你确认，还是早就结束了，得一个个点开看。
+
+窗口图鉴就是为这种「多任务并行」的工作方式做的：把所有窗口按应用分门别类，用可调大小的实时缩略图摆在一个常驻工作台里。**看内容认出窗口，双击回到真实窗口**，正在运行的会话不会被打断。
+
+## 为 AI 编程准备的能力
+
+- **一眼认出每个会话**：终端、iTerm2、浏览器窗口都有实时缩略图，每 6 秒更新；靠内容而不是标题找窗口。
+- **终端任务状态**（可选）：后台的 Terminal / iTerm2 也能显示命令或 AI 会话是否在运行、近期是否有输出、空闲了多久；支持「只看有任务」「任务优先」。只读取会话编号、TTY 与进程信息，**不读取终端内容、不执行命令**。
+- **按你的节奏排列**：拖动缩略图调整顺序；Shift / ⌥ 多选后整组拖动、置顶或移到末尾，把正在推进的几个会话固定在最前面。每个栏目分别记住顺序。
+- **⌘K 快捷命令库**：把常用的 Codex、Claude Code 指令（如 `/plan`、`/review`）连同用途和案例记下来，随时搜索复制。
+- **项目笔记**：Markdown 记录提示词、上下文和踩坑记录，支持多级目录、代码块一键复制、图片与多处备份。
+
+## 全部功能
 
 - **按应用分类的缩略图看板**：全部窗口、收藏、终端、浏览器及各应用；缩略图、列表、列表与大预览三种排列，每个应用独立记住视图、尺寸与排序。
-- **键盘导航**：主看板单击选中，双击或回车打开；方向键选择并自动滚动，网格上下按行移动；Home/End 跳首尾，Esc 清除选择。
+- **键盘导航**：单击选中，双击或回车打开；方向键选择并自动滚动，Home/End 跳首尾，Esc 清除选择。
 - **常驻缩略图侧栏**：跨桌面空间显示，关掉主看板也能用。
-- **终端任务状态**（可选）：Terminal 与 iTerm2 即使在后台，也能看到命令或 AI 会话是否在运行、近期是否有输出、是否暂停或空闲。只读取会话编号、TTY 和进程信息，**不读取终端内容**。
-- **浏览器标签页**（可选）：读取 Chrome、Edge、Safari 全部窗口里的标签页，可在各浏览器或「全部窗口」中汇总查看、搜索、切换、关闭；当前标签显示实时预览。
-- **拖拽与批量排列**：拖动缩略图或列表调整顺序；Shift / ⌥ 多选后整组拖动、置顶或移到末尾，每个栏目分别记住。
-- **多桌面与多显示器**：其他桌面（Space）里的窗口同样列出，点击即切换过去；摆放支持多显示器。
-- **窗口摆放**：右键窗口使用九宫格、半屏、居中、铺满、还原，支持多显示器。
-- **快捷命令库**：按 Codex、Claude Code 和自定义工具记录指令、用途与案例，⌘K 随时搜索复制。
-- **项目笔记**：Markdown 笔记，支持多级目录与子笔记、代码一键复制、图片，可导入 Markdown、JSON、代码、Word、HTML、PDF；可同时备份到 iCloud 云盘、Google Drive、本地磁盘或移动硬盘。
+- **浏览器标签页**（可选）：读取 Chrome、Edge、Safari 全部窗口里的标签页，可按浏览器或在「全部窗口」中汇总查看、搜索、切换、关闭；当前标签显示实时预览。
+- **多桌面与多显示器**：其他桌面（Space）里的窗口同样列出，点击即切换过去；已关闭但系统仍残留的窗口自动隐藏。
+- **窗口摆放与关闭**：右键窗口使用九宫格、半屏、居中、铺满、还原，支持多显示器；缩略图悬停显示关闭按钮，二次确认防误关。
 - 浅色、深色与跟随系统外观；简体中文与 English 界面。
+
+## 截图
+
+| 浅色 | 深色 |
+|---|---|
+| ![主看板 · 浅色](docs/screenshots/board-light.png) | ![主看板 · 深色](docs/screenshots/board-dark.png) |
+| ![快捷命令库 · 浅色](docs/screenshots/commands-light.png) | ![快捷命令库 · 深色](docs/screenshots/commands-dark.png) |
 
 ## 系统要求
 
@@ -37,24 +65,37 @@
 
 ## 安装
 
-### 命令行一键安装
+### 方式一：终端一键安装（推荐）
+
+打开「终端」，粘贴并回车：
 
 ```sh
 curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/install.sh | sh
 ```
 
-脚本会检查系统、下载最新版本、核对 SHA-256、校验应用签名是否为官方证书，再安装到「应用程序」（已有旧版本时移到废纸篓）。`curl` 下载的文件没有隔离标记，因此不会出现 Gatekeeper 提示；应用本身仍未经 Apple 公证。运行前请先退出窗口图鉴。可先[查看脚本内容](scripts/install.sh)。
+脚本会依次：检查是否为 Apple 芯片与 macOS 14+ → 下载最新版本 → **核对 SHA-256** → **校验应用签名是否为官方证书** → 安装到「应用程序」（已有旧版本时移到废纸篓，可恢复）→ 打开窗口图鉴。不使用管理员权限，可先[查看脚本内容](scripts/install.sh)。
 
-### DMG
+- 安装指定版本：`curl -fsSL …/install.sh | WINDOWATLAS_VERSION=0.9.2 sh`
+- 装到个人目录：`curl -fsSL …/install.sh | WINDOWATLAS_INSTALL_DIR="$HOME/Applications" sh`
+- 运行前请先退出正在运行的窗口图鉴。
 
-1. 从 [Releases](https://github.com/zerotoonex/WindowAtlas/releases) 下载 `WindowAtlas-<版本>-apple-silicon.dmg`，建议核对发布页给出的 SHA-256：
+> 为什么终端安装不会弹出安全提示？macOS 只对浏览器等程序下载、带有「隔离标记」的文件做 Gatekeeper 检查，`curl` 下载的文件没有这个标记。应用本身仍**未经 Apple 公证**，脚本的哈希与签名校验就是为此而设。
+
+### 方式二：下载 DMG
+
+1. 从 [Releases](https://github.com/zerotoonex/WindowAtlas/releases/latest) 下载 `WindowAtlas-<版本>-apple-silicon.dmg`。建议核对发布页给出的 SHA-256：
 
    ```sh
    shasum -a 256 ~/Downloads/WindowAtlas-<版本>-apple-silicon.dmg
    ```
 
-2. 打开 DMG，把 **WindowAtlas** 拖到「应用程序」。
-3. **首次打开**：窗口图鉴暂未经过 Apple 公证，macOS 会拦截第一次打开。请打开「系统设置 → 隐私与安全性」，在「已阻止使用“WindowAtlas”」旁点「**仍要打开**」并确认。每个版本只需一次，请不要关闭 Gatekeeper。
+2. 双击打开 DMG，把 **WindowAtlas** 拖到旁边的「应用程序」文件夹，然后推出 DMG。
+3. **首次打开会出现安全提示（正常现象）**：窗口图鉴是个人开发者开源发布的应用，暂未经过 Apple 公证（需要付费开发者账号）。第一次双击时 macOS 会提示 *「Apple 无法验证“WindowAtlas”是否包含可能危害 Mac 安全或泄漏隐私的恶意软件」*，只有「完成」和「移到废纸篓」两个按钮：
+   1. 点「**完成**」关闭提示（不要点「移到废纸篓」）。
+   2. 打开「**系统设置 → 隐私与安全性**」，向下滚动到「安全性」。
+   3. 在「已阻止使用“WindowAtlas”」旁点「**仍要打开**」，输入登录密码确认，再点「打开」。
+
+   每个新版本只需操作一次。请不要为此关闭 Gatekeeper。若提示「已损坏，无法打开」，请重新下载并核对 SHA-256。
 
 完整说明（授权、升级、备份、换机与卸载）见 [docs/INSTALL.md](docs/INSTALL.md)。
 
@@ -106,9 +147,16 @@ zsh scripts/release.sh     # 构建、签名并打包 dist/WindowAtlas-<版本>-
 | `branding/` | Logo、图标与使用规范 |
 | `docs/` | 安装说明与隐私说明 |
 
-## 参与贡献
+## 反馈与参与
 
-欢迎提交 [Issue](https://github.com/zerotoonex/WindowAtlas/issues) 和 Pull Request。提交前请运行 `swift test`，保持改动聚焦，不要在 Issue、笔记或测试数据中包含密钥或个人信息。
+窗口图鉴会持续迭代，非常欢迎你的反馈：
+
+- **遇到问题**：提交 [Bug 反馈](https://github.com/zerotoonex/WindowAtlas/issues/new?template=bug_report.yml)，附上 macOS 版本、窗口图鉴版本（主窗口左下角）与复现步骤。
+- **想要新功能**：提交 [功能建议](https://github.com/zerotoonex/WindowAtlas/issues/new?template=feature_request.yml)，尤其欢迎你在 AI 并行编程中遇到的窗口管理痛点。
+- **贡献代码**：Fork 后提交 Pull Request。提交前请运行 `swift test`，保持改动聚焦。
+- 觉得有用的话，给项目点一个 ⭐️，让更多做 AI 编程的人看到它。
+
+请不要在 Issue、截图或测试数据中包含密钥、密码或其他个人信息。
 
 提交 Pull Request 即表示你同意你的贡献以本项目相同的 MIT 许可证授权。
 

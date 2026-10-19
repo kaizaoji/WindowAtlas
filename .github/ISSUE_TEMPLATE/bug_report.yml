@@ -1,0 +1,53 @@
+name: Bug 反馈 / Bug report
+description: 告诉我们哪里不对劲 · Tell us what went wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请不要粘贴密钥、密码或其他个人信息。
+        Thanks for reporting! Please don't paste secrets, passwords or personal data.
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 / What happened
+      description: 实际看到的情况与期望的情况 · What you saw vs. what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      placeholder: |
+        1. 打开…
+        2. 点击…
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 窗口图鉴版本 / WindowAtlas version
+      description: 主窗口左下角，如 v0.9.2 (41) · Bottom-left of the main window
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS 版本 / macOS version
+      placeholder: macOS 26.4
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: 使用环境 / Setup
+      multiple: true
+      options:
+        - 多个显示器 / Multiple displays
+        - 多个桌面空间 / Multiple desktops (Spaces)
+        - Terminal / iTerm2 任务状态 / Terminal task status
+        - 浏览器标签页 / Browser tabs
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截图或补充 / Screenshots or anything else

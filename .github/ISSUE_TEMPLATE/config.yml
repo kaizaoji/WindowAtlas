@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 官网 / Website
+    url: https://windowatlas.kaizaoji.com
+    about: 功能介绍与下载 · Features and download
+  - name: 安装说明 / Install guide
+    url: https://github.com/zerotoonex/WindowAtlas/blob/main/docs/INSTALL.md
+    about: 首次打开的「仍要打开」、授权、升级与卸载 · First launch, permissions, updates

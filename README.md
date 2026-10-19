@@ -4,31 +4,59 @@
 
 <h1 align="center">WindowAtlas</h1>
 
-<p align="center"><b>Every window, one workspace.</b><br>A native macOS window workspace that shows every window as a thumbnail and opens it with a double-click or Return.</p>
+<p align="center"><b>A macOS window workspace built for parallel AI coding.</b><br>Run a dozen Claude Code and Codex sessions, terminals and browsers at once, and still find and jump to the one you need in a glance.</p>
+
+<p align="center">
+  <a href="https://github.com/zerotoonex/WindowAtlas/releases/latest"><img alt="Download" src="https://img.shields.io/github/v/release/zerotoonex/WindowAtlas?label=download&color=4f8ef7"></a>
+  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111?logo=apple">
+  <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-555">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-3dd68c"></a>
+  <a href="https://windowatlas.kaizaoji.com"><img alt="Website" src="https://img.shields.io/badge/website-windowatlas.kaizaoji.com-4f8ef7"></a>
+</p>
 
 <!-- README-I18N:START -->
 **English** | [简体中文](README.zh-CN.md)
 <!-- README-I18N:END -->
 
-![WindowAtlas](branding/png/social-banner.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/board-dark.png">
+  <img alt="WindowAtlas board: Claude Code, Codex terminals and browser windows as large thumbnails" src="docs/screenshots/board-light.png">
+</picture>
 
 ## Why WindowAtlas?
 
-When you run several Codex and Claude Code sessions, terminals, browsers and Finder windows at once, the one you need is always buried. Mission Control is temporary and title-only switchers make you guess. WindowAtlas lays out every open window like an atlas — grouped by app, as resizable thumbnails — so you recognize a window by what is in it, double-click or press Return, and you are back in the real window. Running sessions are never interrupted.
+AI coding tools move fast, and so has the way we work: one person now runs several Claude Code and Codex agents in parallel across projects, next to dev servers, test runs, browsers, docs and Finder. The windows pile up, and so do the problems:
 
-## Features
+- **Finding a window is slow.** ⌘Tab switches apps, not windows; with a dozen terminals you are guessing. Mission Control disappears the moment you let go.
+- **Switching to the wrong one is easy.** Terminal titles all look alike, so it is easy to send a prompt to the wrong project or interrupt a running task.
+- **Progress is invisible.** Is that background agent still working, waiting for your approval, or done? You have to click through to find out.
+
+WindowAtlas is built for this way of working. It lays out every window, grouped by app, as resizable live thumbnails in an always-available workspace. **Recognize a window by what is in it, double-click, and you are back in the real window** — running sessions are never interrupted.
+
+## Made for AI coding
+
+- **Recognize every session at a glance.** Terminals, iTerm2 and browser windows get live thumbnails, refreshed every 6 seconds — find windows by content, not by title.
+- **Terminal task status (optional).** See whether a command or AI session in Terminal or iTerm2 is running, has recent output, or how long it has been idle — even in the background. Filter to windows with tasks or sort tasks first. Only session IDs, TTYs and process metadata are read; **never terminal contents, and no commands are run.**
+- **Arrange things your way.** Drag thumbnails to reorder; Shift- or ⌥-select several windows to drag them together or move them to the top or bottom, so the sessions you are driving stay up front. Each section remembers its own order.
+- **⌘K command library.** Keep your favorite Codex and Claude Code commands (like `/plan` and `/review`) with purpose and examples; search and copy in a keystroke.
+- **Project notes.** Markdown notes for prompts, context and lessons learned, with nested folders, one-click code copying, images and backups to multiple locations.
+
+## All features
 
 - **Thumbnail boards by app** — all windows, favorites, terminals, browsers and each app; grid, list, or list with a large preview; every app remembers its own layout, size and sort order.
-- **Keyboard navigation** — click to select; double-click or press Return to open. Arrow keys select and scroll, with vertical grid navigation by row. Home/End jump to the first/last item; Esc clears selection.
+- **Keyboard navigation** — click to select, double-click or Return to open; arrow keys move the selection with automatic scrolling; Home/End and Esc.
 - **Always-on sidebar** — a narrow thumbnail sidebar that follows you across Spaces and keeps working when the main board is closed.
-- **Terminal task status** — optional: see whether a command or AI session is running, has recent output, is paused or idle in Terminal and iTerm2, even in the background. Only session IDs, TTYs and process metadata are read — never terminal contents.
-- **Browser tabs** — optional: read every tab in Chrome, Edge and Safari, browse them per browser or together under All Windows, then search, switch or close; the current tab shows a live preview.
-- **Drag and bulk arrange** — drag thumbnails or rows to reorder; Shift- or ⌥-select several windows to drag them together, move them to the top or to the bottom. Each section remembers its own order.
-- **Multiple desktops and displays** — windows on other desktops (Spaces) are listed too and one click takes you there; placement works across displays.
-- **Window placement** — right-click a window for a 3×3 grid, halves, center, fill or restore, with multi-display support.
-- **Command library** — keep your Codex, Claude Code and custom-tool commands with purpose and examples; press ⌘K to search and copy.
-- **Project notes** — Markdown notes with nested folders and sub-notes, one-click code copying, images, import from Markdown, JSON, code, Word, HTML and PDF, and backups to iCloud Drive, Google Drive, a local disk or an external drive.
+- **Browser tabs (optional)** — read every tab in Chrome, Edge and Safari, per browser or combined under All Windows; search, switch or close; the current tab shows a live preview.
+- **Multiple desktops and displays** — windows on other desktops (Spaces) are listed and one click takes you there; closed-but-lingering window surfaces are hidden automatically.
+- **Placement and closing** — right-click for a 3×3 grid, halves, center, fill or restore across displays; hover a thumbnail to close it, with confirmation.
 - Light, dark and system appearance; English and Simplified Chinese.
+
+## Screenshots
+
+| Light | Dark |
+|---|---|
+| ![Board · light](docs/screenshots/board-light.png) | ![Board · dark](docs/screenshots/board-dark.png) |
+| ![Command library · light](docs/screenshots/commands-light.png) | ![Command library · dark](docs/screenshots/commands-dark.png) |
 
 ## Requirements
 
@@ -37,24 +65,37 @@ When you run several Codex and Claude Code sessions, terminals, browsers and Fin
 
 ## Install
 
-### One-line install (Terminal)
+### Option 1: one line in Terminal (recommended)
+
+Open Terminal, paste and press Return:
 
 ```sh
 curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/install.sh | sh
 ```
 
-The script checks your Mac, downloads the latest release, verifies its SHA-256 and that the app is signed with the official certificate, then installs it into Applications (an older copy is moved to the Trash). Files downloaded with `curl` carry no quarantine flag, so there is no Gatekeeper prompt — the app itself is still not notarized. Quit WindowAtlas before running it. [Read the script](scripts/install.sh) first if you like.
+The script checks for Apple silicon and macOS 14+, downloads the latest release, **verifies its SHA-256** and **that the app is signed with the official certificate**, installs it into Applications (an older copy is moved to the Trash), then opens WindowAtlas. No admin rights needed — [read the script](scripts/install.sh) first if you like.
 
-### DMG
+- A specific version: `curl -fsSL …/install.sh | WINDOWATLAS_VERSION=0.9.2 sh`
+- Into your home folder: `curl -fsSL …/install.sh | WINDOWATLAS_INSTALL_DIR="$HOME/Applications" sh`
+- Quit WindowAtlas first if it is running.
 
-1. Download `WindowAtlas-<version>-apple-silicon.dmg` from [Releases](https://github.com/zerotoonex/WindowAtlas/releases) and, optionally, verify it against the published SHA-256:
+> Why no security prompt? macOS runs Gatekeeper only on files carrying the quarantine flag that browsers add; files downloaded with `curl` don't have it. The app is still **not notarized by Apple** — which is exactly why the script checks the hash and signature.
+
+### Option 2: download the DMG
+
+1. Download `WindowAtlas-<version>-apple-silicon.dmg` from [Releases](https://github.com/zerotoonex/WindowAtlas/releases/latest) and, optionally, verify it against the published SHA-256:
 
    ```sh
    shasum -a 256 ~/Downloads/WindowAtlas-<version>-apple-silicon.dmg
    ```
 
-2. Open the DMG and drag **WindowAtlas** into **Applications**.
-3. **First launch:** WindowAtlas is not notarized by Apple yet, so macOS blocks the first launch. Open *System Settings → Privacy & Security*, click **Open Anyway** next to “WindowAtlas was blocked”, and confirm. You only need to do this once per version. Please don't disable Gatekeeper.
+2. Open the DMG, drag **WindowAtlas** into **Applications**, then eject the DMG.
+3. **Expect a security prompt on first launch.** WindowAtlas is an independent open-source app and is not notarized by Apple yet (that requires a paid developer account). The first time you open it, macOS says *“Apple could not verify ‘WindowAtlas’ is free of malware…”* with only **Done** and **Move to Trash**:
+   1. Click **Done** (not Move to Trash).
+   2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
+   3. Next to “WindowAtlas was blocked”, click **Open Anyway**, enter your password, then click **Open**.
+
+   You only do this once per version. Please don't disable Gatekeeper. If macOS says the app is damaged, download it again and check the SHA-256.
 
 The full guide — permissions, updating, backups, moving to a new Mac and uninstalling — is in [docs/INSTALL.md](docs/INSTALL.md) (Chinese, with an English quick guide at the end).
 
@@ -106,9 +147,16 @@ zsh scripts/release.sh     # build, sign and package dist/WindowAtlas-<version>-
 | `branding/` | Logo, icons and usage guidelines |
 | `docs/` | Install guide and privacy statement |
 
-## Contributing
+## Feedback and contributing
 
-[Issues](https://github.com/zerotoonex/WindowAtlas/issues) and pull requests are welcome. Please run `swift test` before submitting, keep changes focused, and never include secrets or personal data in issues, notes or test fixtures.
+WindowAtlas keeps evolving, and your feedback shapes it:
+
+- **Found a bug?** Open a [bug report](https://github.com/zerotoonex/WindowAtlas/issues/new?template=bug_report.yml) with your macOS version, WindowAtlas version (bottom-left of the main window) and steps to reproduce.
+- **Have an idea?** Open a [feature request](https://github.com/zerotoonex/WindowAtlas/issues/new?template=feature_request.yml) — especially window-juggling pain points from parallel AI coding.
+- **Want to contribute code?** Fork and open a pull request. Please run `swift test` first and keep changes focused.
+- If WindowAtlas helps you, a ⭐️ helps other AI coders find it.
+
+Please never include secrets, passwords or personal data in issues, screenshots or test fixtures.
 
 By submitting a pull request, you agree that your contribution is licensed under the same MIT License as the project.
 
