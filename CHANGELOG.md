@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Command library: four built-in Codex commands for resuming sessions (`codex resume`, `--all`, `--last`, `<session ID>`). Existing libraries receive new built-in commands once, without duplicates or overwriting your edits.
+
 ## 0.9.2 — first public release
 
 - Thumbnail boards grouped by app, an always-on thumbnail sidebar, and double-click or Return to open the selected window.
