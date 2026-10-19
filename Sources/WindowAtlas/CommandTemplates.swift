@@ -1,8 +1,40 @@
 import Foundation
 
 /// 首次建库的可编辑示例；只在用户尚无命令库时写入，不随版本覆盖。
+/// 之后新增的模板放进 additions，并递增修订号：新库直接包含，老库启动时补充一次。
 enum CommandTemplates {
-    static var entries: [CommandEntry] {
+    struct Addition {
+        let revision: Int
+        let entries: [CommandEntry]
+    }
+
+    static var entries: [CommandEntry] { initial + additions.flatMap(\.entries) }
+
+    static var additions: [Addition] {
+        [Addition(revision: 2, entries: codexResume)]
+    }
+
+    /// 恢复 Codex 之前的会话（终端命令，在 shell 中执行）。
+    private static var codexResume: [CommandEntry] {
+        let note = L("在终端执行，不是 AI 输入框里的指令。默认只列出当前目录的会话，找不到想要的会话时加上 --all。")
+        return [
+            CommandEntry(title: L("恢复会话 · 从列表选择"), tool: "Codex", command: "codex resume",
+                purpose: L("打开会话列表，从当前目录的会话里选一个接着做。"),
+                example: "cd ~/dev/api-server && codex resume", notes: note),
+            CommandEntry(title: L("恢复会话 · 所有目录"), tool: "Codex", command: "codex resume --all",
+                purpose: L("列出所有目录的会话，列表会多显示一列目录。"),
+                example: "codex resume --all", notes: note),
+            CommandEntry(title: L("继续最近一次会话"), tool: "Codex", command: "codex resume --last",
+                purpose: L("跳过列表，直接接着当前目录最近的一个会话。"),
+                example: "cd ~/dev/web-app && codex resume --last", notes: note),
+            CommandEntry(title: L("按会话 ID 恢复"), tool: "Codex", command: "codex resume <会话ID>",
+                purpose: L("按会话 ID 或会话名称恢复指定的会话。"),
+                example: "cd ~/dev/api-server && codex resume 0199f6c2-7a1e-7d40-9b3e-5c2f8e1a4d77",
+                notes: L("先进入该会话原来所在的目录再执行。会话 ID 可在 codex resume --all 的列表里查到。"))
+        ]
+    }
+
+    private static var initial: [CommandEntry] {
         let codex = URL(string: "https://learn.chatgpt.com/docs/reference/slash-commands")!
         let claude = URL(string: "https://code.claude.com/docs/en/commands")!
         return [

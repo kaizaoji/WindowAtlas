@@ -175,4 +175,36 @@ final class CommandLibraryTests: XCTestCase {
         XCTAssertTrue(store.canLeaveEditor())
     }
 
+
+    @MainActor
+    func testTemplateAdditionsReachExistingLibraryOnceWithoutDuplicates() throws {
+        let root = temporaryRoot()
+        let seed = CommandEntry(title: "旧模板", tool: "Codex", command: "/plan")
+        // 旧版本建库：只有初始模板，没有修订号文件。
+        _ = CommandLibraryStore(root: root, seeds: [seed])
+        try FileManager.default.removeItem(at: root.appendingPathComponent("template-revision"))
+        let resume = CommandEntry(title: "恢复", tool: "Codex", command: "codex resume")
+        let duplicate = CommandEntry(title: "重复", tool: "Codex", command: "/plan")
+        let additions = [CommandTemplates.Addition(revision: 2, entries: [resume, duplicate])]
+        var store: CommandLibraryStore? = CommandLibraryStore(root: root, seeds: [seed], additions: additions)
+        XCTAssertEqual(store?.entries.map(\.command), ["/plan", "codex resume"], "只补充新命令，命令相同的不重复")
+        store = nil
+        // 用户删掉补充的命令后，再次启动不会被加回来。
+        let again = CommandLibraryStore(root: root, seeds: [seed], additions: additions)
+        XCTAssertEqual(again.entries.count, 2)
+        XCTAssertTrue(again.archive(again.entries[1].id))
+        let third = CommandLibraryStore(root: root, seeds: [seed], additions: additions)
+        XCTAssertEqual(third.entries.count, 2)
+    }
+
+    @MainActor
+    func testNewLibraryContainsAllTemplatesIncludingCodexResume() {
+        let store = CommandLibraryStore(root: temporaryRoot(), seeds: CommandTemplates.entries, additions: CommandTemplates.additions)
+        let commands = store.entries.map(\.command)
+        XCTAssertTrue(commands.contains("codex resume"))
+        XCTAssertTrue(commands.contains("codex resume --all"))
+        XCTAssertTrue(commands.contains("codex resume --last"))
+        XCTAssertEqual(Set(commands).count, commands.count)
+    }
 }
+

@@ -23,7 +23,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleShortVersionString</key><string>0.9.2</string>
-<key>CFBundleVersion</key><string>41</string>
+<key>CFBundleVersion</key><string>42</string>
 <key>NSAppleEventsUsageDescription</key><string>读取 Chrome、Edge、Safari 标签页，以及 Terminal/iTerm2 会话编号、TTY 和任务运行状态。终端检测不读取内容、不执行命令，数据仅在本机处理。</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>

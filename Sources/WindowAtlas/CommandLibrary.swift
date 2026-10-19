@@ -36,7 +36,8 @@ final class CommandLibraryStore: ObservableObject {
     private var lastSavedData: Data?
     private var writerLock: CommandLibraryWriterLock?
 
-    init(root: URL? = nil, seeds: [CommandEntry] = []) {
+    /// additions：之后版本新增的内置模板（按修订号分批）。已有命令库只补充一次尚未出现过的命令，不覆盖用户编辑或归档。
+    init(root: URL? = nil, seeds: [CommandEntry] = [], additions: [CommandTemplates.Addition] = []) {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WindowAtlas/Commands", isDirectory: true)
         do {
@@ -44,16 +45,37 @@ final class CommandLibraryStore: ObservableObject {
             acquireWriterLock()
             if try libraryExists() {
                 try load()
+                if !isReadOnly { applyAdditions(additions) }
             } else if !isReadOnly {
                 // 仅首次建库写入模板，后续版本不覆盖用户编辑或归档状态。
                 guard valid(seeds) else { throw LibraryError.invalidContents }
                 try write(seeds)
                 entries = seeds
+                // 新库已包含全部模板，记下当前修订号，避免下次启动重复补充。
+                writeTemplateRevision(additions.map(\.revision).max() ?? 1)
             }
         } catch {
             isReadOnly = true
             errorMessage = L("命令库无法读取，已暂停写入。请保留原文件并检查存储位置。")
         }
+    }
+
+    private var revisionURL: URL { root.appendingPathComponent("template-revision") }
+    private func readTemplateRevision() -> Int {
+        (try? String(contentsOf: revisionURL, encoding: .utf8)).flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 1
+    }
+    private func writeTemplateRevision(_ revision: Int) {
+        try? "\(revision)\n".write(to: revisionURL, atomically: true, encoding: .utf8)
+    }
+
+    /// 补充修订号大于已应用修订号的模板；命令文本相同的（含已归档）视为已存在，不重复添加。
+    private func applyAdditions(_ additions: [CommandTemplates.Addition]) {
+        let applied = readTemplateRevision()
+        let pending = additions.filter { $0.revision > applied }
+        guard let latest = pending.map(\.revision).max() else { return }
+        let existing = Set(entries.map { $0.command.trimmingCharacters(in: .whitespacesAndNewlines) })
+        let fresh = pending.flatMap(\.entries).filter { !existing.contains($0.command.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        if fresh.isEmpty || commit(entries + fresh) { writeTemplateRevision(latest) }
     }
 
     private func acquireWriterLock() {

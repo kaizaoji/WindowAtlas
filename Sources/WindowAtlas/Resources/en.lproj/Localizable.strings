@@ -577,3 +577,13 @@
 "%@ 个标签页" = "%@ tabs";
 "%d 个窗口" = "%d windows";
 "所有浏览器" = "All Browsers";
+"在终端执行，不是 AI 输入框里的指令。默认只列出当前目录的会话，找不到想要的会话时加上 --all。" = "Run this in a terminal, not in the AI prompt. By default only sessions from the current folder are listed; add --all if you can't find the one you want.";
+"恢复会话 · 从列表选择" = "Resume a session · pick from list";
+"打开会话列表，从当前目录的会话里选一个接着做。" = "Open the session list and pick one from the current folder to continue.";
+"恢复会话 · 所有目录" = "Resume a session · all folders";
+"列出所有目录的会话，列表会多显示一列目录。" = "List sessions from every folder, with an extra folder column.";
+"继续最近一次会话" = "Continue the latest session";
+"跳过列表，直接接着当前目录最近的一个会话。" = "Skip the list and continue the most recent session in the current folder.";
+"按会话 ID 恢复" = "Resume by session ID";
+"按会话 ID 或会话名称恢复指定的会话。" = "Resume a specific session by its ID or name.";
+"先进入该会话原来所在的目录再执行。会话 ID 可在 codex resume --all 的列表里查到。" = "cd into the folder the session was started in first. Find session IDs in the codex resume --all list.";

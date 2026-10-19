@@ -910,7 +910,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     static var shared: AppDelegate!
     let store = WindowStore()
     let notes = NotesStore()
-    let commandLibrary = CommandLibraryStore(seeds: CommandTemplates.entries)
+    let commandLibrary = CommandLibraryStore(seeds: CommandTemplates.entries, additions: CommandTemplates.additions)
     lazy var backup = BackupCenter(notes: notes)
     private var window: NSWindow!
     private var statusItem: NSStatusItem!
