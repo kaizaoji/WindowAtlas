@@ -92,7 +92,8 @@ struct WorkspaceSearch: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField(store.showingTabs ? L("搜索标签标题、网址或窗口") : L("搜索窗口或应用"), text: $store.query)
+            // 窗口和标签页用同一个提示与匹配规则：标题、应用名、网址或路径都能搜。
+            TextField(L("搜索窗口、标签、应用或路径"), text: $store.query)
                 .textFieldStyle(.plain).focused($focused)
             if !store.query.isEmpty {
                 Button { store.query = "" } label: { Image(systemName: "xmark.circle.fill") }

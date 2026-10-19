@@ -151,6 +151,8 @@ struct WindowSelectionBar: View {
             Divider().frame(height: 16)
             Button { store.moveWindowsToEdge(store.orderedSelection, top: true) } label: { Label(L("置顶排列"), systemImage: "arrow.up.to.line") }
             Button { store.moveWindowsToEdge(store.orderedSelection, top: false) } label: { Label(L("移到末尾"), systemImage: "arrow.down.to.line") }
+            Divider().frame(height: 16)
+            TileLayoutMenu(ids: store.orderedSelection)
             Button(L("取消选择")) { store.clearWindowSelection() }.keyboardShortcut(.cancelAction)
         }.buttonStyle(.borderless).controlSize(.small)
             .fixedSize()
@@ -191,6 +193,7 @@ struct WindowListView: View {
                                 Text(item.appName).lineLimit(1).font(.caption).foregroundStyle(.secondary).frame(width: 85, alignment: .leading)
                                 Text(store.locationLabel(item)).lineLimit(1).font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 160, alignment: .leading)
                             }
+                            if let mark = store.arrangedWindows[item.id] { ArrangedBadge(mark: mark) }
                             if showStatus { ActivityBadge(item: item, compact: true).frame(width: 120, alignment: .leading) }
                             if showTime { ObservedTime(date: item.firstSeen).frame(width: 145, alignment: .leading) }
                         }.padding(.horizontal, 16).padding(.vertical, 12)
@@ -284,7 +287,7 @@ struct ChromeFolderView: View {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: min(store.cardWidth, max(1, geometry.size.width - 48))), spacing: 12)], spacing: 12) {
                             ForEach(store.filteredTabs) { tab in
-                                Button { store.selectedTabID = tab.id } label: {
+                                Button { store.clickTab(tab) } label: {
                                     VStack(alignment: .leading, spacing: 0) {
                                         TabPreview(tab: tab, cache: store.tabSnapshots)
                                         Divider()
@@ -302,8 +305,14 @@ struct ChromeFolderView: View {
                                     .onAppear { if let id = tab.parentWindowID { store.markVisible(id, visible: true); store.requestCapture() } }
                                     .onDisappear { if let id = tab.parentWindowID { store.markVisible(id, visible: false) } }
                                     .simultaneousGesture(TapGesture(count: 2).onEnded { store.actOnTab(tab) })
-                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(store.selectedTabID == tab.id ? AtlasStyle.accent : .clear, lineWidth: 2))
-                                    .accessibilityAddTraits(store.selectedTabID == tab.id ? .isSelected : [])
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(store.isTabSelected(tab.id) ? AtlasStyle.accent : .clear, lineWidth: 2))
+                                    .overlay(alignment: .topLeading) {
+                                        if !store.markedTabIDs.isEmpty && store.isTabSelected(tab.id) {
+                                            Image(systemName: "checkmark.circle.fill").font(.system(size: 18))
+                                                .symbolRenderingMode(.palette).foregroundStyle(.white, AtlasStyle.accent).padding(9)
+                                        }
+                                    }
+                                    .accessibilityAddTraits(store.isTabSelected(tab.id) ? .isSelected : [])
                                     .id(tab.id).contextMenu { ChromeTabActions(tab: tab) }
                             }
                         }.padding(.horizontal, 24).padding(.bottom, 24)
@@ -328,6 +337,51 @@ struct ChromeFolderView: View {
                 }
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .bottom) { if store.markedTabIDs.count > 1 { TabSelectionBar() } }
+    }
+}
+
+/// 标签多选时的浮动操作条：排列所在窗口，或把 Chrome / Edge 标签拆成独立窗口再排列。
+struct TabSelectionBar: View {
+    @EnvironmentObject var store: WindowStore
+    var body: some View {
+        let tabs = store.orderedTabSelection
+        let parents = store.parentWindows(of: tabs)
+        let canSplit = tabs.contains { TabBrowser(rawValue: $0.appID)?.isChromium ?? false }
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(AtlasStyle.accent)
+            Text(L("已选 %d 个标签", tabs.count)).font(.callout.weight(.semibold)).monospacedDigit()
+            Text(L("（%d 个窗口）", parents.count)).font(.caption).foregroundStyle(.secondary)
+            Divider().frame(height: 16)
+            TileLayoutMenu(ids: parents, title: L("排列所在窗口"))
+            if canSplit {
+                Menu {
+                    if tabs.count > TileLayout.maxWindows {
+                        Text(L("一次最多排列 %d 个窗口，请减少选择。", TileLayout.maxWindows))
+                    } else {
+                        ForEach(TileLayout.allCases, id: \.self) { layout in
+                            Button { store.splitTabsAndTile(tabs, layout: layout) } label: { Label(layout.title, systemImage: layout.symbol) }
+                        }
+                        if NSScreen.screens.count > 1 {
+                            Menu(L("按各自所在的显示器排列")) {
+                                ForEach(TileLayout.allCases, id: \.self) { layout in
+                                    Button(layout.title) { store.splitTabsAndTile(tabs, layout: layout, perDisplay: true) }
+                                }
+                            }
+                        }
+                    }
+                } label: { Label(L("拆成独立窗口再排列"), systemImage: "rectangle.split.2x2") }
+                    .menuStyle(.borderlessButton).fixedSize()
+                    .help(L("Chrome、Edge 的标签各自移到新窗口（页面不刷新）后再排列；终端标签排列所在窗口"))
+            }
+            Button(L("取消选择")) { store.clearTabSelection() }.keyboardShortcut(.cancelAction)
+        }.buttonStyle(.borderless).controlSize(.small)
+            .fixedSize()
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(AtlasStyle.surface, in: Capsule())
+            .overlay(Capsule().strokeBorder(AtlasStyle.border))
+            .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+            .padding(.bottom, 16)
     }
 }
 
@@ -336,7 +390,9 @@ struct ChromeTabActions: View {
     let tab: BrowserTab
     var body: some View {
         Button(L("切换到标签页"), systemImage: "arrow.up.forward.app") { store.actOnTab(tab) }
-        Button(L("拷贝网址"), systemImage: "link") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(tab.url, forType: .string) }
+        if !tab.isTerminalTab {
+            Button(L("拷贝网址"), systemImage: "link") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(tab.url, forType: .string) }
+        }
         if let parent = store.windows.first(where: { $0.id == tab.parentWindowID }) {
             Menu(L("所在窗口")) {
                 Button(L("切换到窗口")) { store.focus(parent) }
@@ -348,8 +404,11 @@ struct ChromeTabActions: View {
                 Button(L("最小化")) { Task { await store.performWindowAction(parent, action: .minimize) } }
             }
         }
-        Divider()
-        Button(L("关闭标签页"), systemImage: "xmark", role: .destructive) { store.actOnTab(tab, close: true) }
+        // 终端标签不提供关闭，避免误中断正在运行的会话。
+        if !tab.isTerminalTab {
+            Divider()
+            Button(L("关闭标签页"), systemImage: "xmark", role: .destructive) { store.actOnTab(tab, close: true) }
+        }
     }
 }
 
@@ -380,13 +439,13 @@ struct ChromeTabList: View {
                             }.frame(width: 100, alignment: .leading)
                             if showTime { ObservedTime(date: tab.firstSeen).frame(width: 145, alignment: .leading) }
                         }.padding(.horizontal, 16).padding(.vertical, 11)
-                            .background(store.selectedTabID == tab.id ? Color.accentColor.opacity(0.14) : Color.clear)
+                            .background(store.isTabSelected(tab.id) ? Color.accentColor.opacity(0.14) : Color.clear)
                             .contentShape(Rectangle())
                             .onTapGesture(count: 2) { store.actOnTab(tab) }
-                            .onTapGesture { store.selectedTabID = tab.id }
+                            .onTapGesture { store.clickTab(tab) }
                             .id(tab.id)
                             .accessibilityElement(children: .combine)
-                            .accessibilityAddTraits(store.selectedTabID == tab.id ? .isSelected : [])
+                            .accessibilityAddTraits(store.isTabSelected(tab.id) ? .isSelected : [])
                             .contextMenu { ChromeTabActions(tab: tab) }
                         Divider().padding(.leading, 50)
                     }
@@ -471,11 +530,48 @@ struct TabPreview: View {
                 .opacity(tab.active ? 1 : 0.85)
         } else {
             VStack(spacing: 8) {
-                Image(systemName: "globe").font(.system(size: 30)).foregroundStyle(AtlasStyle.accent.opacity(0.8))
+                Image(systemName: tab.isTerminalTab ? "terminal" : "globe").font(.system(size: 30)).foregroundStyle(AtlasStyle.accent.opacity(0.8))
                 Text(tab.host).font(.caption.weight(.medium)).foregroundStyle(.secondary).lineLimit(1).padding(.horizontal, 12)
                 Text(L("切到此标签后显示预览")).font(.caption2).foregroundStyle(.tertiary)
             }
         }
+    }
+}
+
+/// 「排列窗口」菜单：选择布局与显示器，一键把选中的窗口（最多 9 个）铺开。
+struct TileLayoutMenu: View {
+    @EnvironmentObject var store: WindowStore
+    let ids: [CGWindowID]
+    var title = L("排列窗口")
+    var body: some View {
+        let tooMany = ids.count > TileLayout.maxWindows
+        Menu {
+            if tooMany {
+                Text(L("一次最多排列 %d 个窗口，请减少选择。", TileLayout.maxWindows))
+            } else {
+                Section(L("排在第一个窗口所在的显示器")) {
+                    ForEach(TileLayout.allCases, id: \.self) { layout in
+                        Button { store.tileWindows(ids, layout: layout) } label: { Label(layout.title, systemImage: layout.symbol) }
+                    }
+                }
+                if NSScreen.screens.count > 1 {
+                    Menu(L("按各自所在的显示器排列")) {
+                        ForEach(TileLayout.allCases, id: \.self) { layout in
+                            Button(layout.title) { store.tileWindows(ids, layout: layout, perDisplay: true) }
+                        }
+                    }
+                    ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in
+                        Menu(L("排到显示器 %d · %@", index + 1, screen.localizedName)) {
+                            ForEach(TileLayout.allCases, id: \.self) { layout in
+                                Button(layout.title) { store.tileWindows(ids, layout: layout, displayID: screen.atlasDisplayID) }
+                            }
+                        }
+                    }
+                }
+            }
+        } label: { Label(title, systemImage: "square.grid.3x3") }
+            .menuStyle(.borderlessButton).fixedSize()
+            .help(tooMany ? L("一次最多排列 %d 个窗口，请减少选择。", TileLayout.maxWindows) : L("把选中的窗口一键铺到屏幕上"))
     }
 }
 

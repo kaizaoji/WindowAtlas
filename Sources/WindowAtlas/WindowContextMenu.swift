@@ -76,6 +76,30 @@ struct WindowContextAnchor: NSViewRepresentable {
             let count = ordering.count > 1 ? L("（%d 个窗口）", ordering.count) : ""
             add(L("置顶排列") + count, to: menu) { self.store.moveWindowsToEdge(ordering, top: true) }
             add(L("移到末尾") + count, to: menu) { self.store.moveWindowsToEdge(ordering, top: false) }
+            // 选中 2～9 个窗口时，可一键排列。
+            if ordering.count >= 2 && ordering.count <= TileLayout.maxWindows {
+                let tile = NSMenuItem(title: L("排列窗口") + count, action: nil, keyEquivalent: "")
+                let tileMenu = NSMenu()
+                for layout in TileLayout.allCases { add(layout.title, to: tileMenu) { self.store.tileWindows(ordering, layout: layout) } }
+                if NSScreen.screens.count > 1 {
+                    tileMenu.addItem(.separator())
+                    let each = NSMenuItem(title: L("按各自所在的显示器排列"), action: nil, keyEquivalent: "")
+                    let eachMenu = NSMenu()
+                    for layout in TileLayout.allCases { add(layout.title, to: eachMenu) { self.store.tileWindows(ordering, layout: layout, perDisplay: true) } }
+                    each.submenu = eachMenu
+                    tileMenu.addItem(each)
+                    for (index, screen) in NSScreen.screens.enumerated() {
+                        let target = NSMenuItem(title: L("排到显示器 %d · %@", index + 1, screen.localizedName), action: nil, keyEquivalent: "")
+                        let targetMenu = NSMenu()
+                        let id = screen.atlasDisplayID
+                        for layout in TileLayout.allCases { add(layout.title, to: targetMenu) { self.store.tileWindows(ordering, layout: layout, displayID: id) } }
+                        target.submenu = targetMenu
+                        tileMenu.addItem(target)
+                    }
+                }
+                tile.submenu = tileMenu
+                menu.addItem(tile)
+            }
             menu.addItem(.separator())
             let entry = NSMenuItem(title: L("窗口显示位置"), action: nil, keyEquivalent: "")
             let submenu = NSMenu(title: L("窗口显示位置"))

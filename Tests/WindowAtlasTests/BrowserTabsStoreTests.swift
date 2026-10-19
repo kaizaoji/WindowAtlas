@@ -27,7 +27,7 @@ final class BrowserTabsStoreTests: XCTestCase {
         XCTAssertEqual(store.filteredTabs.map(\.tabID), ["c1", "c2"])
         store.selection = TabBrowser.safari.rawValue
         XCTAssertEqual(store.filteredTabs.map(\.tabID), ["s1"])
-        store.selection = "com.apple.Terminal"
+        store.selection = "com.apple.finder"
         XCTAssertNil(store.currentTabBrowser)
         XCTAssertFalse(store.showingTabs)
     }
@@ -84,6 +84,85 @@ final class BrowserTabsStoreTests: XCTestCase {
         XCTAssertEqual(store.filteredTabs.first?.location, "Chrome · 窗口 1")
         store.selection = TabBrowser.chrome.rawValue
         XCTAssertEqual(store.filteredTabs.map(\.tabID), ["c1"])
+    }
+
+    func testTerminalFoldersListTabsButDefaultToWindows() {
+        let store = WindowStore()
+        func window(_ id: CGWindowID, _ appID: String) -> WindowItem {
+            WindowItem(id: id, pid: 1, appID: appID, appName: appID, title: "W", frame: .zero, icon: nil)
+        }
+        store.windows = [window(1, TabBrowser.terminal.rawValue), window(2, TabBrowser.iterm.rawValue), window(3, TabBrowser.chrome.rawValue)]
+        store.browserTabs = [tab(TabBrowser.terminal.rawValue, "t1"), tab(TabBrowser.iterm.rawValue, "i1"), tab(TabBrowser.chrome.rawValue, "c1")]
+        store.selection = TabBrowser.iterm.rawValue
+        XCTAssertTrue(store.isTabFolder)
+        XCTAssertFalse(store.showingTabs, "终端栏目默认仍显示窗口")
+        store.setShowTabs(true)
+        XCTAssertEqual(store.filteredTabs.map(\.tabID), ["i1"])
+        store.selection = "terminals"
+        store.setShowTabs(true)
+        store.sortMode = .manual
+        XCTAssertEqual(store.filteredTabs.map(\.tabID), ["t1", "i1"], "终端汇总栏目只含终端与 iTerm2")
+        store.selection = "browsers"
+        store.setShowTabs(true)
+        XCTAssertEqual(store.filteredTabs.map(\.tabID), ["c1"])
+        XCTAssertTrue(store.browserTabs[0].isTerminalTab)
+    }
+
+    func testTerminalTabTitleShowsFullPathOnlyForTruncatedPathTitles() {
+        let path = "~/Desktop/DeskTop/Ai/codex/26codex"
+        XCTAssertEqual(TerminalDirectories.title("..codex/26codex (-zsh)", path: path), path + " (-zsh)")
+        XCTAssertEqual(TerminalDirectories.title("~ (-zsh)", path: "~"), "~ (-zsh)")
+        XCTAssertEqual(TerminalDirectories.title("✳ 项目记忆文件与上下文 (claude)", path: path), "✳ 项目记忆文件与上下文 (claude)", "AI 会话的自定义标题保持不变")
+        XCTAssertEqual(TerminalDirectories.title("..codex/26codex (-zsh)", path: nil), "..codex/26codex (-zsh)")
+        XCTAssertEqual(TerminalDirectories.abbreviate(NSHomeDirectory() + "/dev/app"), "~/dev/app")
+        func tab(_ url: String) -> BrowserTab {
+            BrowserTab(appID: TabBrowser.iterm.rawValue, pid: 1, tabID: "u", browserWindowID: "1", windowNumber: 1,
+                title: "t", url: url, active: false, windowFrame: .zero, parentWindowID: nil)
+        }
+        XCTAssertEqual(tab(path + " · claude · ttys023").host, "26codex", "占位显示项目文件夹名")
+        XCTAssertEqual(tab("ttys023").host, "ttys023")
+    }
+
+    func testSnapshotGoesToTabShownAtCaptureTime() {
+        func t(_ id: String, _ raw: String, active: Bool = false) -> BrowserTab {
+            var value = BrowserTab(appID: TabBrowser.iterm.rawValue, pid: 1, tabID: id, browserWindowID: "1", windowNumber: 1,
+                title: "~/full/" + raw, url: "", active: active, windowFrame: .zero, parentWindowID: 9)
+            value.rawTitle = raw
+            return value
+        }
+        let tabs = [t("a", "..codex/26codex (-zsh)", active: true), t("b", "✳ 项目记忆 (claude)"), t("c", "~ (-zsh)"), t("d", "~ (-zsh)")]
+        // 列表仍记着 a 为当前标签，但窗口此刻显示的是 b：画面应记给 b。
+        XCTAssertEqual(tabShownInWindow(liveTitle: "✳ 项目记忆 (claude)", tabs: tabs)?.tabID, "b")
+        // 两个标题相同且都不是记录中的当前标签：无法确定，不保存。
+        XCTAssertNil(tabShownInWindow(liveTitle: "~ (-zsh)", tabs: tabs))
+        XCTAssertNil(tabShownInWindow(liveTitle: "", tabs: tabs))
+        var web = t("w", "GitHub - zerotoonex/WindowAtlas · GitHub"); web.rawTitle = ""
+        XCTAssertEqual(tabShownInWindow(liveTitle: "GitHub - zerotoonex/WindowAtlas", tabs: [web, t("x", "Docs")])?.tabID, "w")
+    }
+
+    func testWindowsAndTabsShareSearchRules() {
+        XCTAssertTrue(searchMatches("", "anything"))
+        XCTAssertTrue(searchMatches("26codex claude", "~/dev/26codex", "claude · ttys023"))
+        XCTAssertFalse(searchMatches("26codex codex-only", "~/dev/26codex", "claude"))
+        XCTAssertTrue(searchMatches("ITERM", "iTerm2"))
+    }
+
+    func testTabSelectionAndParentWindowsAreDeduplicatedInOrder() {
+        let store = WindowStore()
+        func make(_ id: String, parent: CGWindowID, order: Int) -> BrowserTab {
+            var value = BrowserTab(appID: TabBrowser.chrome.rawValue, pid: 1, tabID: id, browserWindowID: "w\(parent)", windowNumber: Int(parent),
+                title: id, url: "https://e.com/\(id)", active: false, windowFrame: .zero, parentWindowID: parent)
+            value.order = order
+            return value
+        }
+        store.browserTabs = [make("a", parent: 7, order: 0), make("b", parent: 7, order: 1), make("c", parent: 9, order: 0)]
+        store.selection = TabBrowser.chrome.rawValue
+        store.sortMode = .manual
+        store.markedTabIDs = Set(store.browserTabs.map(\.id))
+        XCTAssertEqual(store.orderedTabSelection.map(\.tabID), ["a", "b", "c"])
+        XCTAssertEqual(store.parentWindows(of: store.orderedTabSelection), [7, 9], "同一窗口只排一次")
+        store.clearTabSelection()
+        XCTAssertTrue(store.orderedTabSelection.isEmpty)
     }
 }
 

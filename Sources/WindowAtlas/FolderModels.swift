@@ -96,10 +96,20 @@ struct BrowserTab: Identifiable {
     var firstSeen: Date = Date()
     /// 标签在所属窗口中的顺序（从 0 开始），用于按浏览器原顺序排列。
     var order = 0
+    /// 应用自己显示的原始标题，用于截图时与窗口实时标题比对；为空时用 title。
+    var rawTitle = ""
     var id: String { "\(appID):\(pid):\(tabID)" }
     /// 标签画面缓存的键：Chromium 标签 ID 稳定；Safari 标签 ID 是位置序号，改用网址。
     var previewKey: String { "\(appID):\(pid):" + (appID == TabBrowser.safari.rawValue ? url : tabID) }
-    var host: String { URL(string: url)?.host ?? url }
+    var isTerminalTab: Bool { TabBrowser(rawValue: appID)?.isTerminal ?? false }
+    /// 占位显示的来源：网页为域名；终端标签为项目文件夹名。
+    var host: String {
+        if isTerminalTab {
+            let path = url.components(separatedBy: " · ").first ?? url
+            return path.hasPrefix("~") || path.hasPrefix("/") ? (URL(fileURLWithPath: path).lastPathComponent) : path
+        }
+        return URL(string: url)?.host ?? url
+    }
     /// 所属浏览器与窗口，如「Chrome · 窗口 1」；汇总栏目中可区分来自哪个浏览器。
     var location: String { (TabBrowser(rawValue: appID)?.shortName ?? appID) + " · " + L("窗口 %d", windowNumber) }
 }
@@ -148,3 +158,72 @@ func reorderedAppIDs(_ ids: [String], moving source: String, to target: String) 
     result.insert(source, at: targetIndex)
     return result
 }
+
+/// 窗口与标签页共用的搜索规则：按空格拆成多个关键词，每个词都要出现在任一字段中（不区分大小写）。
+func searchMatches(_ query: String, _ fields: String...) -> Bool {
+    let terms = query.split(whereSeparator: \.isWhitespace).map(String.init)
+    guard !terms.isEmpty else { return true }
+    let text = fields.joined(separator: " ")
+    return terms.allSatisfy { text.localizedCaseInsensitiveContains($0) }
+}
+
+/// 批量排列选中窗口（最多 9 个）的布局。
+enum TileLayout: String, CaseIterable {
+    case auto, columns, rows, focusLeft
+    static let maxWindows = 9
+    var title: String {
+        switch self {
+        case .auto: return L("自动网格")
+        case .columns: return L("左右并排")
+        case .rows: return L("上下堆叠")
+        case .focusLeft: return L("左侧主窗口")
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .auto: return "square.grid.3x3"
+        case .columns: return "rectangle.split.3x1"
+        case .rows: return "rectangle.split.1x2"
+        case .focusLeft: return "rectangle.leadinghalf.inset.filled"
+        }
+    }
+}
+
+/// 自动网格的行列数：1 个铺满、2 个左右、3 个三列、4 个 2×2、5～6 个 3×2、7～9 个 3×3。
+func autoGrid(_ count: Int) -> (columns: Int, rows: Int) {
+    switch count {
+    case ...1: return (1, 1)
+    case 2: return (2, 1)
+    case 3: return (3, 1)
+    case 4: return (2, 2)
+    case 5...6: return (3, 2)
+    default: return (3, 3)
+    }
+}
+
+/// 计算每个窗口的位置（屏幕坐标，左上角原点），按从左到右、从上到下的顺序；窗口之间留 gap 间距。
+func tileFrames(count: Int, layout: TileLayout, usable: CGRect, gap: CGFloat = 8) -> [CGRect] {
+    let n = min(max(count, 0), TileLayout.maxWindows)
+    guard n > 0 else { return [] }
+    func cell(_ area: CGRect, column: Int, row: Int, columns: Int, rows: Int) -> CGRect {
+        let width = (area.width - gap * CGFloat(columns - 1)) / CGFloat(columns)
+        let height = (area.height - gap * CGFloat(rows - 1)) / CGFloat(rows)
+        return CGRect(x: area.minX + CGFloat(column) * (width + gap), y: area.minY + CGFloat(row) * (height + gap),
+                      width: width, height: height).integral
+    }
+    switch layout {
+    case .auto:
+        let grid = autoGrid(n)
+        return (0..<n).map { cell(usable, column: $0 % grid.columns, row: $0 / grid.columns, columns: grid.columns, rows: grid.rows) }
+    case .columns:
+        return (0..<n).map { cell(usable, column: $0, row: 0, columns: n, rows: 1) }
+    case .rows:
+        return (0..<n).map { cell(usable, column: 0, row: $0, columns: 1, rows: n) }
+    case .focusLeft:
+        guard n > 1 else { return [usable] }
+        let left = cell(usable, column: 0, row: 0, columns: 2, rows: 1)
+        let rightArea = cell(usable, column: 1, row: 0, columns: 2, rows: 1)
+        return [left] + (0..<(n - 1)).map { cell(rightArea, column: 0, row: $0, columns: 1, rows: n - 1) }
+    }
+}
+

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Terminal and iTerm2 tabs: list every tab (each iTerm2 split pane) with its full working directory, running program and TTY; double-click to switch. Tabs can't be closed from WindowAtlas so running sessions are never interrupted. Only titles, TTYs, process names and working directories are read — never terminal contents.
+- Tab thumbnails are confirmed against the window's live title at capture time, so a preview is never stored for the wrong tab.
+- One search box and one matching rule for windows and tabs: titles, apps, URLs or paths, with multiple keywords.
+- Arrange windows: multi-select 2–9 windows from any apps and lay them out in one click (auto grid, side by side, stacked, main window on the left) on the first window's display, on each window's own display, or on a chosen display. Arranged windows are marked with their display until moved.
+- Multi-select tabs to arrange their windows, or split Chrome and Edge tabs into their own windows (pages don't reload) and arrange them.
 - Command library: four built-in Codex commands for resuming sessions (`codex resume`, `--all`, `--last`, `<session ID>`). Existing libraries receive new built-in commands once, without duplicates or overwriting your edits.
 
 ## 0.9.2 — first public release

@@ -133,4 +133,26 @@ final class FolderTests: XCTestCase {
         XCTAssertEqual(windowGridColumns(width: 1364, cardWidth: 560), 2)
     }
 
+
+    func testAutoGridSizes() {
+        XCTAssertEqual([1, 2, 3, 4, 5, 6, 7, 9].map { autoGrid($0).columns * 10 + autoGrid($0).rows }, [11, 21, 31, 22, 32, 32, 33, 33])
+    }
+
+    func testTileFramesStayInsideScreenWithoutOverlap() {
+        let usable = CGRect(x: -1440, y: 25, width: 1440, height: 875)
+        for layout in TileLayout.allCases {
+            for count in 1...9 {
+                let frames = tileFrames(count: count, layout: layout, usable: usable)
+                XCTAssertEqual(frames.count, count, "\(layout) \(count)")
+                for (i, a) in frames.enumerated() {
+                    XCTAssertTrue(usable.insetBy(dx: -1, dy: -1).contains(a), "\(layout) \(count) 超出屏幕")
+                    for b in frames[(i + 1)...] { XCTAssertFalse(a.insetBy(dx: 1, dy: 1).intersects(b), "\(layout) \(count) 重叠") }
+                }
+            }
+        }
+        XCTAssertEqual(tileFrames(count: 12, layout: .auto, usable: usable).count, 9, "最多 9 个")
+        let focus = tileFrames(count: 3, layout: .focusLeft, usable: CGRect(x: 0, y: 0, width: 1000, height: 600), gap: 0)
+        XCTAssertEqual(focus, [CGRect(x: 0, y: 0, width: 500, height: 600), CGRect(x: 500, y: 0, width: 500, height: 300), CGRect(x: 500, y: 300, width: 500, height: 300)])
+    }
 }
+

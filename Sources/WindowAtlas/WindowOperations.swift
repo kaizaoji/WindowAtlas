@@ -5,6 +5,8 @@ import ScreenCaptureKit
 enum ManagedWindowAction {
     case focus, close, minimize
     case place(WindowPlacement, CGDirectDisplayID?)
+    /// 批量布局：直接设为指定位置与尺寸（屏幕坐标）。
+    case frame(CGRect)
 }
 
 struct AccessibleWindow {
@@ -117,6 +119,51 @@ extension WindowStore {
         return candidates[index]
     }
 
+    /// 把选中的窗口（按看板显示顺序，最多 9 个）排到一块显示器上。默认用第一个窗口所在的显示器。
+    /// perDisplay：多显示器时窗口留在各自所在的屏幕，每块屏幕上的窗口分别排列。
+    func tileWindows(_ ids: [CGWindowID], layout: TileLayout, displayID: CGDirectDisplayID? = nil, perDisplay: Bool = false) {
+        // 按传入顺序（看板或标签的显示顺序）取窗口；标签页视图下这些窗口可能不在当前栏目的窗口列表里。
+        var seen = Set<CGWindowID>()
+        let items = ids.filter { seen.insert($0).inserted }.compactMap { id in windows.first { $0.id == id } }
+        guard items.count >= 1 else { return }
+        guard items.count <= TileLayout.maxWindows else {
+            errorMessage = L("一次最多排列 %d 个窗口，请减少选择。", TileLayout.maxWindows); return
+        }
+        func screenOf(_ item: WindowItem) -> NSScreen? {
+            NSScreen.screens.max(by: { intersectionArea(item.frame, quartzFrame($0.visibleFrame)) < intersectionArea(item.frame, quartzFrame($1.visibleFrame)) })
+        }
+        var placements: [(WindowItem, CGRect)] = []
+        if perDisplay {
+            let groups = Dictionary(grouping: items) { screenOf($0)?.atlasDisplayID ?? 0 }
+            for (id, group) in groups {
+                guard let screen = NSScreen.screens.first(where: { $0.atlasDisplayID == id }) ?? screenOf(group[0]) else { continue }
+                // 保持看板中的先后顺序
+                let ordered = items.filter { item in group.contains { $0.id == item.id } }
+                placements += zip(ordered, tileFrames(count: ordered.count, layout: layout, usable: quartzFrame(screen.visibleFrame))).map { ($0, $1) }
+            }
+        } else {
+            let screen = displayID.flatMap { id in NSScreen.screens.first { $0.atlasDisplayID == id } } ?? screenOf(items[0])
+            guard let screen else { return }
+            placements = Array(zip(items, tileFrames(count: items.count, layout: layout, usable: quartzFrame(screen.visibleFrame))))
+        }
+        let frames = placements.map(\.1)
+        // 标记已排列的窗口和所在显示器，方便给另一块屏幕挑窗口时避开。
+        for (item, frame) in placements {
+            let index = NSScreen.screens.firstIndex { quartzFrame($0.visibleFrame).intersects(frame) } ?? 0
+            let name = NSScreen.screens.count > 1 ? L("显示器 %d", index + 1) : L("当前屏幕")
+            arrangedWindows[item.id] = ArrangedMark(display: name, frame: frame, date: Date())
+        }
+        Task {
+            // 各窗口属于不同应用，并行设置以缩短等待；全部完成后按顺序带到前面，避免被其他窗口挡住。
+            await withTaskGroup(of: Void.self) { group in
+                for (item, frame) in zip(placements.map(\.0), frames) {
+                    group.addTask { await self.performWindowAction(item, action: .frame(frame)) }
+                }
+            }
+            for item in items.reversed() { await performWindowAction(item, action: .focus) }
+        }
+    }
+
     func performWindowAction(_ item: WindowItem, action: ManagedWindowAction) async {
         accessAllowed = AXIsProcessTrusted()
         guard accessAllowed else { requestAccessibility(); return }
@@ -189,41 +236,51 @@ extension WindowStore {
                 if originalFrames[item.id] == nil { originalFrames[item.id] = current }
                 let targetFrame = placement == .restore ? originalFrames[item.id] ?? current
                     : placedFrame(placement, current: current, usable: quartzFrame(screen.visibleFrame))
-                AXUIElementSetAttributeValue(root, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-                var point = targetFrame.origin, size = targetFrame.size
-                if let position = AXValueCreate(.cgPoint, &point), let dimensions = AXValueCreate(.cgSize, &size) {
-                    let b = AXUIElementSetAttributeValue(root, kAXSizeAttribute as CFString, dimensions)
-                    // AX frame changes can be queued by the target app. Let its resize
-                    // finish before sending a position based on the new dimensions.
-                    try? await Task.sleep(for: .milliseconds(200))
-                    // AppKit resizing preserves the old top-left origin. Move after resize
-                    // so that the resize cannot overwrite the requested placement.
-                    let a = AXUIElementSetAttributeValue(root, kAXPositionAttribute as CFString, position)
-                    try? await Task.sleep(for: .milliseconds(200))
-                    // 小屏上的应用可能把第一次调整限制在原屏尺寸；跨屏后重新应用目标尺寸。
-                    let resized = AXUIElementSetAttributeValue(root, kAXSizeAttribute as CFString, dimensions)
-                    try? await Task.sleep(for: .milliseconds(150))
-                    let positioned = AXUIElementSetAttributeValue(root, kAXPositionAttribute as CFString, position)
-                    if a != .success || b != .success || resized != .success || positioned != .success {
-                        errorMessage = L("该应用限制了窗口的位置或尺寸，已应用支持的部分。")
-                    }
-                    // 跨屏动画可能稍后再次约束窗口，有限重试并校验实际结果。
-                    for _ in 0..<3 {
-                        try? await Task.sleep(for: .milliseconds(250))
-                        guard let actual = axFrame(root), geometryDistance(actual, targetFrame) > 4 else { break }
-                        AXUIElementSetAttributeValue(root, kAXSizeAttribute as CFString, dimensions)
-                        try? await Task.sleep(for: .milliseconds(350))
-                        AXUIElementSetAttributeValue(root, kAXPositionAttribute as CFString, position)
-                    }
-                    try? await Task.sleep(for: .milliseconds(250))
-                    if let actual = axFrame(root), geometryDistance(actual, targetFrame) > 4 {
-                        errorMessage = L("该应用限制了窗口的位置或尺寸，已应用支持的部分。")
-                    }
-                }
+                await applyFrame(root, targetFrame)
                 if placement == .restore { originalFrames.removeValue(forKey: item.id) }
+            case .frame(let targetFrame):
+                guard let current = axFrame(root) else { errorMessage = L("无法读取窗口位置。"); return }
+                // 记下布局前的位置，之后可用「还原调整前的位置」恢复。
+                if originalFrames[item.id] == nil { originalFrames[item.id] = current }
+                await applyFrame(root, targetFrame)
             }
             await refresh()
         } catch { errorMessage = L("窗口操作失败：%@", error.localizedDescription) }
+    }
+
+    /// 把窗口设为指定位置与尺寸（屏幕坐标，左上角原点）。先改尺寸再移位置，并有限重试，兼容跨屏与应用自身的约束。
+    private func applyFrame(_ root: AXUIElement, _ targetFrame: CGRect) async {
+        AXUIElementSetAttributeValue(root, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        var point = targetFrame.origin, size = targetFrame.size
+        if let position = AXValueCreate(.cgPoint, &point), let dimensions = AXValueCreate(.cgSize, &size) {
+            let b = AXUIElementSetAttributeValue(root, kAXSizeAttribute as CFString, dimensions)
+            // AX frame changes can be queued by the target app. Let its resize
+            // finish before sending a position based on the new dimensions.
+            try? await Task.sleep(for: .milliseconds(200))
+            // AppKit resizing preserves the old top-left origin. Move after resize
+            // so that the resize cannot overwrite the requested placement.
+            let a = AXUIElementSetAttributeValue(root, kAXPositionAttribute as CFString, position)
+            try? await Task.sleep(for: .milliseconds(200))
+            // 小屏上的应用可能把第一次调整限制在原屏尺寸；跨屏后重新应用目标尺寸。
+            let resized = AXUIElementSetAttributeValue(root, kAXSizeAttribute as CFString, dimensions)
+            try? await Task.sleep(for: .milliseconds(150))
+            let positioned = AXUIElementSetAttributeValue(root, kAXPositionAttribute as CFString, position)
+            if a != .success || b != .success || resized != .success || positioned != .success {
+                errorMessage = L("该应用限制了窗口的位置或尺寸，已应用支持的部分。")
+            }
+            // 跨屏动画可能稍后再次约束窗口，有限重试并校验实际结果。
+            for _ in 0..<3 {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let actual = axFrame(root), geometryDistance(actual, targetFrame) > 4 else { break }
+                AXUIElementSetAttributeValue(root, kAXSizeAttribute as CFString, dimensions)
+                try? await Task.sleep(for: .milliseconds(350))
+                AXUIElementSetAttributeValue(root, kAXPositionAttribute as CFString, position)
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+            if let actual = axFrame(root), geometryDistance(actual, targetFrame) > 4 {
+                errorMessage = L("该应用限制了窗口的位置或尺寸，已应用支持的部分。")
+            }
+        }
     }
 
     private func resolveFocusWindow(_ item: WindowItem) -> AccessibleWindow? {

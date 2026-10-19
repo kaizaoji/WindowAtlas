@@ -83,7 +83,7 @@ final class WindowStore: ObservableObject {
     let refreshStatus = RefreshStatus()
     let tabSnapshots = TabSnapshotCache()
     @Published var selection = "all" {
-        didSet { if selection != oldValue { query = ""; taskOnly = false; selectedWindowID = nil; selectedTabID = nil; recentlyMovedWindowIDs = [] } }
+        didSet { if selection != oldValue { query = ""; taskOnly = false; selectedWindowID = nil; selectedTabID = nil; recentlyMovedWindowIDs = []; markedTabIDs = [] } }
     }
     @Published var appOrder = UserDefaults.standard.stringArray(forKey: "appOrder") ?? [] {
         didSet { UserDefaults.standard.set(appOrder, forKey: "appOrder") }
@@ -107,6 +107,11 @@ final class WindowStore: ObservableObject {
         // 方向键、Esc 或普通单击移动光标到多选之外时，结束多选。
         didSet { if selectedWindowID.map({ !markedWindowIDs.contains($0) }) ?? true, !markedWindowIDs.isEmpty { markedWindowIDs = [] } }
     }
+    /// 标签页视图的多选（Shift 连续选择，⌥ / ⌘ 逐个加选）；为空时以 selectedTabID 作为单选。
+    @Published var markedTabIDs: Set<String> = []
+    var tabSelectionAnchor: String?
+    /// 批量排列过的窗口及其排列位置，用于在卡片上标注「已排列 · 显示器 N」。窗口被挪动或关闭后自动去掉。
+    @Published var arrangedWindows: [CGWindowID: ArrangedMark] = [:]
     /// 置顶 / 移到末尾后高亮刚移动的窗口（只显示边框），下一次点击或选择变化时清除。
     @Published var recentlyMovedWindowIDs: Set<CGWindowID> = []
     /// Shift / ⌥ / ⌘ 多选的窗口；为空时以 selectedWindowID 作为单选。
@@ -145,7 +150,7 @@ final class WindowStore: ObservableObject {
     }
     var showingTabs: Bool {
         guard isTabFolder, !(searchAll && !query.isEmpty) else { return false }
-        return currentTabBrowser != nil ? folder.showTabs : folder.aggregateTabs
+        return tabsDefaultOn ? folder.showTabs : folder.aggregateTabs
     }
     var displayCount: Int { showingTabs ? filteredTabs.count : filtered.count }
     @Published var favorites: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "favorites") ?? [])
@@ -194,7 +199,7 @@ final class WindowStore: ObservableObject {
             case "browsers": inGroup = item.isBrowser
             default: inGroup = item.appID == selection
             }
-            return matchesTaskFilter(item) && (inGroup || (searchAll && !query.isEmpty)) && (query.isEmpty || (item.title + " " + item.appName).localizedCaseInsensitiveContains(query))
+            return matchesTaskFilter(item) && (inGroup || (searchAll && !query.isEmpty)) && searchMatches(query, item.title, item.appName)
         }
         switch sortMode {
         case .name: return items.sorted { $0.title == $1.title ? $0.id < $1.id : $0.title.localizedStandardCompare($1.title) == .orderedAscending }
@@ -378,6 +383,12 @@ final class WindowStore: ObservableObject {
             }
             // 窗口列表没有变化时不重新发布，避免每 6 秒整个看板重算一次。
             if !sameWindowList(windows, next) { windows = next }
+            // 排列标记只在窗口仍在排列位置附近时保留（允许应用自身最小尺寸等造成的小偏差）。
+            let stillArranged = arrangedWindows.filter { id, mark in
+                guard let item = next.first(where: { $0.id == id }) else { return false }
+                return Date().timeIntervalSince(mark.date) < 4 || geometryDistance(item.frame, mark.frame) <= 60
+            }
+            if stillArranged.count != arrangedWindows.count { arrangedWindows = stillArranged }
             Task { await refreshTerminalTasks() }
             captureWindows = sources
             previews = previews.filter { sources[$0.key] != nil }
@@ -461,8 +472,11 @@ final class WindowStore: ObservableObject {
                 if !blank {
                     let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
                     target.image = image
-                    // 浏览器窗口的画面就是它当前标签的画面，记下来供该标签切到后台后继续显示。
-                    if let tab = browserTabs.first(where: { $0.parentWindowID == item.id && $0.active }) {
+                    // 窗口的画面就是它当前标签的画面，记下来供该标签切到后台后继续显示。
+                    // 标签列表最多每 6 秒刷新一次，刚切换标签时可能过期；用截图时的窗口实时标题确认是哪个标签。
+                    let windowTabs = browserTabs.filter { $0.parentWindowID == item.id }
+                    if !windowTabs.isEmpty, let live = liveWindowTitle(item.id),
+                       let tab = tabShownInWindow(liveTitle: live, tabs: windowTabs) {
                         tabSnapshots.store(cgImage, for: tab.previewKey)
                     }
                 }
@@ -784,6 +798,8 @@ struct WindowCard: View {
                             Text(L("等待窗口预览")).font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                }.overlay(alignment: .bottomLeading) {
+                    if let mark = store.arrangedWindows[item.id] { ArrangedBadge(mark: mark).padding(9) }
                 }.overlay(alignment: .topTrailing) {
                     HStack(spacing: 6) {
                         ActivityBadge(item: item)
@@ -1112,3 +1128,24 @@ func sameWindowList(_ lhs: [WindowItem], _ rhs: [WindowItem]) -> Bool {
             && a.onOtherSpace == b.onOtherSpace
     }
 }
+
+/// 批量排列记录：所在显示器的名称与排列后的位置。
+struct ArrangedMark: Equatable {
+    let display: String
+    let frame: CGRect
+    let date: Date
+}
+
+/// 卡片左下角的「已排列 · 显示器 N」标签，避免在多块屏幕之间重复挑选同一个窗口。
+struct ArrangedBadge: View {
+    let mark: ArrangedMark
+    var body: some View {
+        Label(L("已排列 · %@", mark.display), systemImage: "square.grid.3x3.fill")
+            .font(.system(size: 10, weight: .semibold)).lineLimit(1)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .foregroundStyle(.white)
+            .background(AtlasStyle.accent.opacity(0.92), in: Capsule())
+            .help(L("已用「排列窗口」放到%@；挪动窗口后标记自动消失", mark.display))
+    }
+}
+
