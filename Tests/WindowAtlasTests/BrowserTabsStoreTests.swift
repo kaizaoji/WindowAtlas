@@ -136,8 +136,8 @@ final class BrowserTabsStoreTests: XCTestCase {
         // 两个标题相同且都不是记录中的当前标签：无法确定，不保存。
         XCTAssertNil(tabShownInWindow(liveTitle: "~ (-zsh)", tabs: tabs))
         XCTAssertNil(tabShownInWindow(liveTitle: "", tabs: tabs))
-        var web = t("w", "GitHub - zerotoonex/WindowAtlas · GitHub"); web.rawTitle = ""
-        XCTAssertEqual(tabShownInWindow(liveTitle: "GitHub - zerotoonex/WindowAtlas", tabs: [web, t("x", "Docs")])?.tabID, "w")
+        var web = t("w", "GitHub - kaizaoji/WindowAtlas · GitHub"); web.rawTitle = ""
+        XCTAssertEqual(tabShownInWindow(liveTitle: "GitHub - kaizaoji/WindowAtlas", tabs: [web, t("x", "Docs")])?.tabID, "w")
     }
 
     func testWindowsAndTabsShareSearchRules() {

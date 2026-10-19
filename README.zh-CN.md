@@ -7,7 +7,7 @@
 <p align="center"><b>为 AI 并行编程打造的 macOS 窗口工作台。</b><br>十几个 Claude Code、Codex、终端和浏览器同时开着，也能一眼看到、一键回到你要的那个窗口。</p>
 
 <p align="center">
-  <a href="https://github.com/zerotoonex/WindowAtlas/releases/latest"><img alt="下载" src="https://img.shields.io/github/v/release/zerotoonex/WindowAtlas?label=%E4%B8%8B%E8%BD%BD&color=4f8ef7"></a>
+  <a href="https://github.com/kaizaoji/WindowAtlas/releases/latest"><img alt="下载" src="https://img.shields.io/github/v/release/kaizaoji/WindowAtlas?label=%E4%B8%8B%E8%BD%BD&color=4f8ef7"></a>
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111?logo=apple">
   <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-555">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-3dd68c"></a>
@@ -72,7 +72,7 @@ AI 编程工具迭代飞快，我们的工作方式也变了：一个人同时�
 打开「终端」，粘贴并回车：
 
 ```sh
-curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/kaizaoji/WindowAtlas/releases/latest/download/install.sh | sh
 ```
 
 脚本会依次：检查是否为 Apple 芯片与 macOS 14+ → 下载最新版本 → **核对 SHA-256** → **校验应用签名是否为官方证书** → 安装到「应用程序」（已有旧版本时移到废纸篓，可恢复）→ 打开窗口图鉴。不使用管理员权限，可先[查看脚本内容](scripts/install.sh)。
@@ -85,7 +85,7 @@ curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/in
 
 ### 方式二：下载 DMG
 
-1. 从 [Releases](https://github.com/zerotoonex/WindowAtlas/releases/latest) 下载 `WindowAtlas-<版本>-apple-silicon.dmg`。建议核对发布页给出的 SHA-256：
+1. 从 [Releases](https://github.com/kaizaoji/WindowAtlas/releases/latest) 下载 `WindowAtlas-<版本>-apple-silicon.dmg`。建议核对发布页给出的 SHA-256：
 
    ```sh
    shasum -a 256 ~/Downloads/WindowAtlas-<版本>-apple-silicon.dmg
@@ -153,8 +153,8 @@ zsh scripts/release.sh     # 构建、签名并打包 dist/WindowAtlas-<版本>-
 
 窗口图鉴会持续迭代，非常欢迎你的反馈：
 
-- **遇到问题**：提交 [Bug 反馈](https://github.com/zerotoonex/WindowAtlas/issues/new?template=bug_report.yml)，附上 macOS 版本、窗口图鉴版本（主窗口左下角）与复现步骤。
-- **想要新功能**：提交 [功能建议](https://github.com/zerotoonex/WindowAtlas/issues/new?template=feature_request.yml)，尤其欢迎你在 AI 并行编程中遇到的窗口管理痛点。
+- **遇到问题**：提交 [Bug 反馈](https://github.com/kaizaoji/WindowAtlas/issues/new?template=bug_report.yml)，附上 macOS 版本、窗口图鉴版本（主窗口左下角）与复现步骤。
+- **想要新功能**：提交 [功能建议](https://github.com/kaizaoji/WindowAtlas/issues/new?template=feature_request.yml)，尤其欢迎你在 AI 并行编程中遇到的窗口管理痛点。
 - **贡献代码**：Fork 后提交 Pull Request。提交前请运行 `swift test`，保持改动聚焦。
 - 觉得有用的话，给项目点一个 ⭐️，让更多做 AI 编程的人看到它。
 
@@ -164,7 +164,7 @@ zsh scripts/release.sh     # 构建、签名并打包 dist/WindowAtlas-<版本>-
 
 ## 许可证
 
-窗口图鉴以 [MIT 许可证](LICENSE) 开源。Copyright © 2026 zerotoonex。
+窗口图鉴以 [MIT 许可证](LICENSE) 开源。Copyright © 2026 开造记 kaizaoji。
 
 **通俗说明**（具有法律效力的只有 [LICENSE](LICENSE) 英文原文）：
 
@@ -177,7 +177,7 @@ zsh scripts/release.sh     # 构建、签名并打包 dist/WindowAtlas-<版本>-
 <details>
 <summary>MIT 许可证中文参考译文（仅供理解，以英文原文为准）</summary>
 
-版权所有 (c) 2026 zerotoonex
+版权所有 (c) 2026 开造记 kaizaoji
 
 特此免费授予任何获得本软件及相关文档文件（以下简称「软件」）副本的人不受限制地处理本软件的权利，包括但不限于使用、复制、修改、合并、发布、分发、再许可和/或销售本软件副本的权利，并允许向其提供本软件的人这样做，但须符合以下条件：
 

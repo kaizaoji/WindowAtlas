@@ -1,7 +1,7 @@
 #!/bin/sh
 # 窗口图鉴 WindowAtlas 命令行安装脚本（随每个 GitHub Release 发布）。
 #
-#   curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/install.sh | sh
+#   curl -fsSL https://github.com/kaizaoji/WindowAtlas/releases/latest/download/install.sh | sh
 #
 # 流程：检查系统 → 从 GitHub Releases 下载 DMG 与 SHA-256 → 核对哈希 → 校验签名身份 → 安装到「应用程序」。
 # 用 curl 下载的文件不带隔离标记，因此不会出现 Gatekeeper「无法验证开发者」提示；应用本身未经 Apple 公证，
@@ -17,7 +17,7 @@
 
 main() {
   set -eu
-  REPO="zerotoonex/WindowAtlas"
+  REPO="kaizaoji/WindowAtlas"
   BUNDLE_ID="com.kaizaoji.windowatlas"
   # 正式版本签名证书「WindowAtlas Release」的根证书哈希；签名身份不符的安装包一律拒绝。
   CERT_ROOT='certificate root = H"f919e2e10b63947f883087c6bae06b6a61bd2d76"'

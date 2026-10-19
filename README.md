@@ -7,7 +7,7 @@
 <p align="center"><b>A macOS window workspace built for parallel AI coding.</b><br>Run a dozen Claude Code and Codex sessions, terminals and browsers at once, and still find and jump to the one you need in a glance.</p>
 
 <p align="center">
-  <a href="https://github.com/zerotoonex/WindowAtlas/releases/latest"><img alt="Download" src="https://img.shields.io/github/v/release/zerotoonex/WindowAtlas?label=download&color=4f8ef7"></a>
+  <a href="https://github.com/kaizaoji/WindowAtlas/releases/latest"><img alt="Download" src="https://img.shields.io/github/v/release/kaizaoji/WindowAtlas?label=download&color=4f8ef7"></a>
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111?logo=apple">
   <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-555">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-3dd68c"></a>
@@ -72,7 +72,7 @@ WindowAtlas is built for this way of working. It lays out every window, grouped 
 Open Terminal, paste and press Return:
 
 ```sh
-curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/kaizaoji/WindowAtlas/releases/latest/download/install.sh | sh
 ```
 
 The script checks for Apple silicon and macOS 14+, downloads the latest release, **verifies its SHA-256** and **that the app is signed with the official certificate**, installs it into Applications (an older copy is moved to the Trash), then opens WindowAtlas. No admin rights needed — [read the script](scripts/install.sh) first if you like.
@@ -85,7 +85,7 @@ The script checks for Apple silicon and macOS 14+, downloads the latest release,
 
 ### Option 2: download the DMG
 
-1. Download `WindowAtlas-<version>-apple-silicon.dmg` from [Releases](https://github.com/zerotoonex/WindowAtlas/releases/latest) and, optionally, verify it against the published SHA-256:
+1. Download `WindowAtlas-<version>-apple-silicon.dmg` from [Releases](https://github.com/kaizaoji/WindowAtlas/releases/latest) and, optionally, verify it against the published SHA-256:
 
    ```sh
    shasum -a 256 ~/Downloads/WindowAtlas-<version>-apple-silicon.dmg
@@ -153,8 +153,8 @@ zsh scripts/release.sh     # build, sign and package dist/WindowAtlas-<version>-
 
 WindowAtlas keeps evolving, and your feedback shapes it:
 
-- **Found a bug?** Open a [bug report](https://github.com/zerotoonex/WindowAtlas/issues/new?template=bug_report.yml) with your macOS version, WindowAtlas version (bottom-left of the main window) and steps to reproduce.
-- **Have an idea?** Open a [feature request](https://github.com/zerotoonex/WindowAtlas/issues/new?template=feature_request.yml) — especially window-juggling pain points from parallel AI coding.
+- **Found a bug?** Open a [bug report](https://github.com/kaizaoji/WindowAtlas/issues/new?template=bug_report.yml) with your macOS version, WindowAtlas version (bottom-left of the main window) and steps to reproduce.
+- **Have an idea?** Open a [feature request](https://github.com/kaizaoji/WindowAtlas/issues/new?template=feature_request.yml) — especially window-juggling pain points from parallel AI coding.
 - **Want to contribute code?** Fork and open a pull request. Please run `swift test` first and keep changes focused.
 - If WindowAtlas helps you, a ⭐️ helps other AI coders find it.
 
@@ -164,7 +164,7 @@ By submitting a pull request, you agree that your contribution is licensed under
 
 ## License
 
-WindowAtlas is open source under the [MIT License](LICENSE). Copyright © 2026 zerotoonex.
+WindowAtlas is open source under the [MIT License](LICENSE). Copyright © 2026 开造记 kaizaoji.
 
 **In plain words** (the [LICENSE](LICENSE) file is the only legally binding text):
 

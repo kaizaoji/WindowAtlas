@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.9.3 — 2026-10-19
+
+- The project now lives at github.com/kaizaoji/WindowAtlas (old links redirect). The one-line installer points to the new location.
 
 - Terminal and iTerm2 tabs: list every tab (each iTerm2 split pane) with its full working directory, running program and TTY; double-click to switch. Tabs can't be closed from WindowAtlas so running sessions are never interrupted. Only titles, TTYs, process names and working directories are read — never terminal contents.
 - Tab thumbnails are confirmed against the window's live title at capture time, so a preview is never stored for the wrong tab.

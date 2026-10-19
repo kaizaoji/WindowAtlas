@@ -4,7 +4,7 @@
 
 ## 1. 下载与校验
 
-1. 从 [GitHub Releases](https://github.com/zerotoonex/WindowAtlas/releases) 下载 `WindowAtlas-<版本>-apple-silicon.dmg`。
+1. 从 [GitHub Releases](https://github.com/kaizaoji/WindowAtlas/releases) 下载 `WindowAtlas-<版本>-apple-silicon.dmg`。
 2. （建议）校验文件完整：在「终端」中执行下面的命令，结果应与发布页给出的 SHA-256 完全一致。
 
    ```sh
@@ -23,7 +23,7 @@
 在「终端」中执行：
 
 ```sh
-curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/kaizaoji/WindowAtlas/releases/latest/download/install.sh | sh
 ```
 
 脚本会检查系统、下载最新版本、核对 SHA-256、校验应用签名是否为官方证书，再安装到「应用程序」；已有旧版本时移到废纸篓（可恢复）。安装前请先退出正在运行的窗口图鉴。脚本内容可先在浏览器中打开上面的地址查看。
@@ -109,7 +109,7 @@ curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/in
 
 ## 9. 反馈
 
-问题与建议请提交到 [GitHub Issues](https://github.com/zerotoonex/WindowAtlas/issues)，附上 macOS 版本、窗口图鉴版本（主窗口左下角）与复现步骤。请勿在反馈中粘贴笔记里的密钥、密码等敏感内容。
+问题与建议请提交到 [GitHub Issues](https://github.com/kaizaoji/WindowAtlas/issues)，附上 macOS 版本、窗口图鉴版本（主窗口左下角）与复现步骤。请勿在反馈中粘贴笔记里的密钥、密码等敏感内容。
 
 ## 10. 许可证
 
@@ -120,7 +120,7 @@ curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/in
 ## English quick guide
 
 - Requires **macOS 14+ on Apple silicon**. Intel Macs are not supported yet.
-- Install from the Terminal (no Gatekeeper prompt, because files downloaded with `curl` carry no quarantine flag; the script verifies the SHA-256 and the signing certificate): `curl -fsSL https://github.com/zerotoonex/WindowAtlas/releases/latest/download/install.sh | sh`
+- Install from the Terminal (no Gatekeeper prompt, because files downloaded with `curl` carry no quarantine flag; the script verifies the SHA-256 and the signing certificate): `curl -fsSL https://github.com/kaizaoji/WindowAtlas/releases/latest/download/install.sh | sh`
 - Or drag WindowAtlas from the DMG into Applications. The app is **not notarized**: on first launch macOS will block it — open *System Settings → Privacy & Security* and click **Open Anyway**, then confirm. Do not disable Gatekeeper.
 - Grant **Screen Recording** (thumbnails) and **Accessibility** (switching and placing windows). Quit and reopen after enabling Screen Recording. If a switch is on but not recognized, remove WindowAtlas from the list with “−” and add it again with “+”.
 - Notes live in `~/Library/Application Support/WindowAtlas/Notes/`; the command library in `…/WindowAtlas/Commands/` (not included in note backups). Thumbnails are never written to disk.
